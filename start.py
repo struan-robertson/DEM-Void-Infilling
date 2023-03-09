@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+import os
+import random
+import time
+import shutil
+from argparse import ArgumentParser
+
+import torch
+import torch.nn as nn
+import torchvision.utils as vutils
+
+#from trainer import Trainer
+#from data.dataset import Dataset
+#from utils.tools import get_config, random_bbox, mask_image
+#from utils.logger import get_logger
 
 dataset = 0
 resume = 0 #TODO
@@ -16,8 +30,8 @@ mosaic_unit_size = 12
 
 # Training parameters
 expname = "benchmark"
-cuda = True
-gpu_ids = 0
+#cuda = True
+#gpu_ids = 0
 num_workers = 4
 lr = 0.0001
 beta1 = 0.5
@@ -28,6 +42,7 @@ print_iter = 100
 viz_iter = 1000
 viz_max_out = 16
 snapshot_save_iter = 5000
+seed = None
 
 # Loss weight
 coarse_l1_alpha = 1.2
@@ -43,3 +58,16 @@ netG_ngf = 32
 
 netD_input_dim = 1
 netD_ndf = 64
+
+
+##### Initialise
+
+cuda = True if torch.cuda.is_available() else False
+os.makedirs("out/images", exist_ok=True)
+os.makedirs("out/saved_models", exist_ok=True)
+
+if seed is None:
+    seed = random.randint(1, 10000)
+
+print(f"Random seed used: {seed}")
+random.seed(seed)
