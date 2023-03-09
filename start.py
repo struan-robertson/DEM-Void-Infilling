@@ -15,52 +15,52 @@ from data.dataset_n import Dataset # TODO rename when network finished
 #from utils.tools import get_config, random_bbox, mask_image
 #from utils.logger import get_logger
 
-dataset = "../Data"
-resume = 0 #TODO
-batch_size = 48
-image_shape = [256, 256, 1]
-mask_shape = [128, 128]
-mask_batch_same = True
-max_delta_shape = [32, 32]
-margin = [0, 0]
-discounted_mask = True
-spatial_discounting_gamma = 0.9
-random_crop = True
-mask_type = "hole" # hole | mosaic
-mosaic_unit_size = 12
+### Config
+config = {
+    'dataset': "../Data",
+    'resume': 0,
+    'batch_size': 48,
+    'image_shape': [256, 256, 1],
+    'mask_shape': [128, 128],
+    'mask_batch_same': True,
+    'max_delta_shape': [32, 32],
+    'margin': [0, 0],
+    'discounted_mask': True,
+    'spatial_discounting_gamma': 0.9,
+    'random_crop': True,
+    'mask_type': "hole", # hole | mosaic
+    'mosaic_unit_size': 12,
 
-# Training parameters
-expname = "benchmark"
-#cuda = True
-#gpu_ids = 0
-n_cpu = 16 # Might be the same as num_workers #TODO come back after network implemented
-num_workers = 4
-lr = 0.0001
-beta1 = 0.5
-beta2 = 0.9
-n_critic = 5
-niter = 500000
-print_iter = 100
-viz_iter = 1000
-viz_max_out = 16
-snapshot_save_iter = 5000
-seed = None
+    # Training parameters
+    'expname': "benchmark",
+    #cuda = True
+    #gpu_ids = 0
+    'n_cpu': 16, # Might be the same as num_workers #TODO come back after network implemented
+    'num_workers': 4,
+    'lr': 0.0001,
+    'beta1': 0.5,
+    'beta2': 0.9,
+    'n_critic': 5,
+    'niter': 500000,
+    'print_iter': 100,
+    'viz_iter': 1000,
+    'viz_max_out': 16,
+    'snapshot_save_iter': 5000,
+    'seed': None,
 
-# Loss weight
-coarse_l1_alpha = 1.2
-l1_loss_alpha = 1.2
-ae_loss_alpha = 1.2
-global_wgan_loss_alpha = 1.0
-gan_loss_alpha = 0.001
-wgan_gp_lambda = 10
+    # Loss weight
+    'coarse_l1_alpha': 1.2,
+    'l1_loss_alpha': 1.2,
+    'ae_loss_alpha': 1.2,
+    'global_wgan_loss_alpha': 1.0,
+    'gan_loss_alpha': 0.001,
+    'wgan_gp_lambda': 10,
 
-# Network Parameters
-netG_input_dim = 1
-netG_ngf = 32
-
-netD_input_dim = 1
-netD_ndf = 64
-
+    # Network Parameters
+    'input_dim': 1,
+    'ngf': 32,
+    'ndf': 64
+}
 
 ##### Initialise
 
@@ -81,12 +81,15 @@ if cuda:
 
 ##### Dataloader
 ## This is a very expensive way of implementing this, as all data is held in memory twice. # TODO implement a fix if time
+
+# Dataloader for training
 dataloader = DataLoader(
     Dataset(dataset),
     batch_size=batch_size,
     shuffle=True,
     num_workers=n_cpu,
 )
+# Dataloader for saving grid of samples every epoch
 test_dataloader = DataLoader(
     Dataset(dataset, mode="val"),
     batch_size=12,
