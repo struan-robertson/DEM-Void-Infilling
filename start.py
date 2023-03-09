@@ -10,7 +10,7 @@ import torch.nn as nn
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
 
-#from trainer import Trainer
+from trainer import Trainer
 from data.dataset_n import Dataset # TODO rename when network finished
 #from utils.tools import get_config, random_bbox, mask_image
 #from utils.logger import get_logger
@@ -98,3 +98,8 @@ test_dataloader = DataLoader(
     shuffle=True,
     num_workers=1,
 )
+
+trainer = Trainer(config)
+print(trainer.netG)
+print(trainer.localD)
+print(trainer.globalD)

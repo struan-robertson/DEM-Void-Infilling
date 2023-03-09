@@ -12,15 +12,14 @@ from utils.tools import extract_image_patches, flow_to_image, \
 
 
 class Generator(nn.Module):
-    def __init__(self, config, use_cuda, device_ids):
+    def __init__(self, config, use_cuda):
         super(Generator, self).__init__()
         self.input_dim = config['input_dim']
         self.cnum = config['ngf']
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
-        self.coarse_generator = CoarseGenerator(self.input_dim, self.cnum, self.use_cuda, self.device_ids)
-        self.fine_generator = FineGenerator(self.input_dim, self.cnum, self.use_cuda, self.device_ids)
+        self.coarse_generator = CoarseGenerator(self.input_dim, self.cnum, self.use_cuda)
+        self.fine_generator = FineGenerator(self.input_dim, self.cnum, self.use_cuda)
 
     def forward(self, x, mask):
         x_stage1 = self.coarse_generator(x, mask)
@@ -29,10 +28,9 @@ class Generator(nn.Module):
 
 
 class CoarseGenerator(nn.Module):
-    def __init__(self, input_dim, cnum, use_cuda=True, device_ids=None):
+    def __init__(self, input_dim, cnum, use_cuda=True):
         super(CoarseGenerator, self).__init__()
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
         self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
         self.conv2_downsample = gen_conv(cnum, cnum*2, 3, 2, 1)
@@ -92,10 +90,9 @@ class CoarseGenerator(nn.Module):
 
 
 class FineGenerator(nn.Module):
-    def __init__(self, input_dim, cnum, use_cuda=True, device_ids=None):
+    def __init__(self, input_dim, cnum, use_cuda=True):
         super(FineGenerator, self).__init__()
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
         # 3 x 256 x 256
         self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
@@ -123,7 +120,7 @@ class FineGenerator(nn.Module):
         self.pmconv5 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
         self.pmconv6 = gen_conv(cnum*4, cnum*4, 3, 1, 1, activation='relu')
         self.contextul_attention = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10,
-                                                       fuse=True, use_cuda=self.use_cuda, device_ids=self.device_ids)
+                                                       fuse=True, use_cuda=self.use_cuda)
         self.pmconv9 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
         self.pmconv10 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
         self.allconv11 = gen_conv(cnum*8, cnum*4, 3, 1, 1)
@@ -183,7 +180,7 @@ class FineGenerator(nn.Module):
 
 class ContextualAttention(nn.Module):
     def __init__(self, ksize=3, stride=1, rate=1, fuse_k=3, softmax_scale=10,
-                 fuse=False, use_cuda=False, device_ids=None):
+                 fuse=False, use_cuda=False):
         super(ContextualAttention, self).__init__()
         self.ksize = ksize
         self.stride = stride
@@ -192,7 +189,6 @@ class ContextualAttention(nn.Module):
         self.softmax_scale = softmax_scale
         self.fuse = fuse
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
     def forward(self, f, b, mask=None):
         """ Contextual attention layer implementation.
@@ -397,12 +393,11 @@ def test_contextual_attention(args):
 
 
 class LocalDis(nn.Module):
-    def __init__(self, config, use_cuda=True, device_ids=None):
+    def __init__(self, config, use_cuda=True):
         super(LocalDis, self).__init__()
         self.input_dim = config['input_dim']
         self.cnum = config['ndf']
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
         self.dis_conv_module = DisConvModule(self.input_dim, self.cnum)
         self.linear = nn.Linear(self.cnum*4*8*8, 1)
@@ -416,12 +411,11 @@ class LocalDis(nn.Module):
 
 
 class GlobalDis(nn.Module):
-    def __init__(self, config, use_cuda=True, device_ids=None):
+    def __init__(self, config, use_cuda=True):
         super(GlobalDis, self).__init__()
         self.input_dim = config['input_dim']
         self.cnum = config['ndf']
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
         self.dis_conv_module = DisConvModule(self.input_dim, self.cnum)
         self.linear = nn.Linear(self.cnum*4*16*16, 1)
@@ -435,10 +429,9 @@ class GlobalDis(nn.Module):
 
 
 class DisConvModule(nn.Module):
-    def __init__(self, input_dim, cnum, use_cuda=True, device_ids=None):
+    def __init__(self, input_dim, cnum, use_cuda=True):
         super(DisConvModule, self).__init__()
         self.use_cuda = use_cuda
-        self.device_ids = device_ids
 
         self.conv1 = dis_conv(input_dim, cnum, 5, 2, 2)
         self.conv2 = dis_conv(cnum, cnum*2, 5, 2, 2)

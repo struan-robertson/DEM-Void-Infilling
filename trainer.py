@@ -16,11 +16,10 @@ class Trainer(nn.Module):
         super(Trainer, self).__init__()
         self.config = config
         self.use_cuda = self.config['cuda']
-        self.device_ids = self.config['gpu_ids']
 
-        self.netG = Generator(self.config['netG'], self.use_cuda, self.device_ids)
-        self.localD = LocalDis(self.config['netD'], self.use_cuda, self.device_ids)
-        self.globalD = GlobalDis(self.config['netD'], self.use_cuda, self.device_ids)
+        self.netG = Generator(self.config['netG'], self.use_cuda)
+        self.localD = LocalDis(self.config['netD'], self.use_cuda)
+        self.globalD = GlobalDis(self.config['netD'], self.use_cuda)
 
         self.optimizer_g = torch.optim.Adam(self.netG.parameters(), lr=self.config['lr'],
                                             betas=(self.config['beta1'], self.config['beta2']))
@@ -28,9 +27,9 @@ class Trainer(nn.Module):
         self.optimizer_d = torch.optim.Adam(d_params, lr=config['lr'],
                                             betas=(self.config['beta1'], self.config['beta2']))
         if self.use_cuda:
-            self.netG.to(self.device_ids[0])
-            self.localD.to(self.device_ids[0])
-            self.globalD.to(self.device_ids[0])
+            self.netG.cuda()
+            self.localD.cuda()
+            self.globalD.cuda()
 
     def forward(self, x, bboxes, masks, ground_truth, compute_loss_g=False):
         self.train()
