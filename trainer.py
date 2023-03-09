@@ -17,9 +17,9 @@ class Trainer(nn.Module):
         self.config = config
         self.use_cuda = self.config['cuda']
 
-        self.netG = Generator(self.config['netG'], self.use_cuda)
-        self.localD = LocalDis(self.config['netD'], self.use_cuda)
-        self.globalD = GlobalDis(self.config['netD'], self.use_cuda)
+        self.netG = Generator(self.config, self.use_cuda)
+        self.localD = LocalDis(self.config, self.use_cuda)
+        self.globalD = GlobalDis(self.config, self.use_cuda)
 
         self.optimizer_g = torch.optim.Adam(self.netG.parameters(), lr=self.config['lr'],
                                             betas=(self.config['beta1'], self.config['beta2']))
@@ -27,9 +27,9 @@ class Trainer(nn.Module):
         self.optimizer_d = torch.optim.Adam(d_params, lr=config['lr'],
                                             betas=(self.config['beta1'], self.config['beta2']))
         if self.use_cuda:
-            self.netG.cuda()
-            self.localD.cuda()
-            self.globalD.cuda()
+            self.netG = self.netG.cuda()
+            self.localD = self.localD.cuda()
+            self.globalD = self.globalD.cuda()
 
     def forward(self, x, bboxes, masks, ground_truth, compute_loss_g=False):
         self.train()

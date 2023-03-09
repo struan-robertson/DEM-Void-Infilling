@@ -110,7 +110,8 @@ class Dataset(data.Dataset):
             # For test data mask the center of the image
             masked_img, aux = self.apply_center_mask(img)
 
-        return img, masked_img, aux
+        #return img, masked_img, aux
+        return img
 
     def __len__(self):
         return self.tiles.shape[0]
