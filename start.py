@@ -70,8 +70,10 @@ os.makedirs("out/saved_models", exist_ok=True)
 
 ## Set random seed to allow for training to be recreated
 
-if seed is None:
-    seed = random.randint(1, 10000)
+if config["seed"] is None:
+    config["seed"] = random.randint(1, 10000)
+
+seed = config["seed"]
 
 print(f"Random seed used: {seed}")
 random.seed(seed)
@@ -84,14 +86,14 @@ if cuda:
 
 # Dataloader for training
 dataloader = DataLoader(
-    Dataset(dataset),
-    batch_size=batch_size,
+    Dataset(config["dataset"]),
+    batch_size=config["batch_size"],
     shuffle=True,
-    num_workers=n_cpu,
+    num_workers=config["n_cpu"],
 )
 # Dataloader for saving grid of samples every epoch
 test_dataloader = DataLoader(
-    Dataset(dataset, mode="val"),
+    Dataset(config["dataset"], mode="val"),
     batch_size=12,
     shuffle=True,
     num_workers=1,
