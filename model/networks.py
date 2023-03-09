@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import spectral_norm as spectral_norm_fn
 from torch.nn.utils import weight_norm as weight_norm_fn
-from PIL import Image
 from torchvision import transforms
 from torchvision import utils as vutils
 
@@ -347,50 +346,6 @@ class ContextualAttention(nn.Module):
             flow = F.interpolate(flow, scale_factor=self.rate*4, mode='nearest')
 
         return y, flow
-
-
-def test_contextual_attention(args):
-    import cv2
-    import os
-    # run on cpu
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-
-    def float_to_uint8(img):
-        img = img * 255
-        return img.astype('uint8')
-
-    rate = 2
-    stride = 1
-    grid = rate*stride
-
-    b = default_loader(args.imageA)
-    w, h = b.size
-    b = b.resize((w//grid*grid//2, h//grid*grid//2), Image.ANTIALIAS)
-    # b = b.resize((w//grid*grid, h//grid*grid), Image.ANTIALIAS)
-    print('Size of imageA: {}'.format(b.size))
-
-    f = default_loader(args.imageB)
-    w, h = f.size
-    f = f.resize((w//grid*grid, h//grid*grid), Image.ANTIALIAS)
-    print('Size of imageB: {}'.format(f.size))
-
-    f, b = transforms.ToTensor()(f), transforms.ToTensor()(b)
-    f, b = f.unsqueeze(0), b.unsqueeze(0)
-    if torch.cuda.is_available():
-        f, b = f.cuda(), b.cuda()
-
-    contextual_attention = ContextualAttention(ksize=3, stride=stride, rate=rate, fuse=True)
-
-    if torch.cuda.is_available():
-        contextual_attention = contextual_attention.cuda()
-
-    yt, flow_t = contextual_attention(f, b)
-    vutils.save_image(yt, 'vutils' + args.imageOut, normalize=True)
-    vutils.save_image(flow_t, 'flow' + args.imageOut, normalize=True)
-    # y = tensor_img_to_npimg(yt.cpu()[0])
-    # flow = tensor_img_to_npimg(flow_t.cpu()[0])
-    # cv2.imwrite('flow' + args.imageOut, flow_t)
-
 
 class LocalDis(nn.Module):
     def __init__(self, config, use_cuda=True):
