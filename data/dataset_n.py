@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 
 import torch.utils.data as data
@@ -27,8 +26,8 @@ transforms_ = [
 
 # Dataloader class
 
-class DemDataset(data.Dataset):
-    def __init__(self, root, transforms_=None, img_size=256, mask_size=128, mode="train"):
+class Dataset(data.Dataset):
+    def __init__(self, root, img_size=256, mask_size=128, mode="train"):
         self.transform = transforms.Compose(transforms_)
         self.img_size = img_size
         self.mask_size = mask_size
