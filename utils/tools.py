@@ -3,9 +3,9 @@ import torch
 import yaml
 import numpy as np
 from PIL import Image
+import matplotlib.pyplot as plt
 
 import torch.nn.functional as F
-
 
 def pil_loader(path):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
@@ -258,7 +258,9 @@ def flow_to_image(flow):
         u = u / (maxrad + np.finfo(float).eps)
         v = v / (maxrad + np.finfo(float).eps)
         img = compute_color(u, v)
+
         out.append(img)
+
     return np.float32(np.uint8(out))
 
 
@@ -494,6 +496,34 @@ def get_model_list(dirname, key, iteration=0):
         raise ValueError('Not found models with this iteration')
     return last_model_name
 
+def apply_colormap(tensor):
+    cm = plt.cm.terrain
+
+    tensor = tensor.cpu().detach().numpy()
+
+    print(tensor.shape)
+
+    img = np.empty([tensor.shape[0], (256 * 2), 256, 4])
+
+    print(img.shape)
+
+    for idx, sample in enumerate(tensor):
+        norm = (sample + 1) / 2
+        norm = norm * 255
+        norm = norm.astype(np.int16)
+        mapped = cm(norm)
+
+        mapped = np.squeeze(mapped)
+        img[idx] = mapped
+
+    return img
+
+def make_grid(d):
+
+    r1 = np.concatenate((d[0], d[1], d[2], d[3], d[4], d[5]), axis=1)
+    r2 = np.concatenate((d[6], d[7], d[8], d[9], d[10], d[11]), axis=1)
+
+    return np.concatenate((r1, r2), axis=0)
 
 if __name__ == '__main__':
     test_random_bbox()

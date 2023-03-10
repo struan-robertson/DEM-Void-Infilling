@@ -7,10 +7,13 @@ import torch
 import torch.nn as nn
 import torchvision.utils as vutils
 from torch.utils.data import DataLoader
+from torch.autograd import Variable
+
+import matplotlib.pyplot as plt
 
 from trainer import Trainer
 from data.dataset_n import Dataset # TODO rename when network finished
-from utils.tools import random_bbox, mask_image
+from utils.tools import random_bbox, mask_image, apply_colormap, make_grid
 #from utils.logger import get_logger
 
 ### Config
@@ -18,7 +21,7 @@ config = {
     'dataset': "../Data",
     'checkpoint_save_path': "out/saved_models",
     'resume': 0,
-    'batch_size': 48,
+    'batch_size': 12,
     'image_shape': [256, 256, 1],
     'mask_shape': [128, 128],
     'mask_batch_same': True,
@@ -42,7 +45,7 @@ config = {
     'n_critic': 5,
     'epochs': 500000,
     'print_iter': 5,
-    'viz_iter': 1000,
+    'viz_iter': 1,
     'viz_max_out': 16,
     'snapshot_save_iter': 5000,
     'seed': None,
@@ -90,13 +93,6 @@ train_loader = DataLoader(
     shuffle=True,
     num_workers=config["n_cpu"],
 )
-# Dataloader for saving grid of samples every epoch
-# test_dataloader = DataLoader(
-#     Dataset(config["dataset"], mode="val"),
-#     batch_size=12,
-#     shuffle=True,
-#     num_workers=1,
-# )
 
 trainer = Trainer(config)
 #print(trainer.netG)
@@ -137,9 +133,9 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
 
     ## TODO Might need to take mean of losses, dont think so tho as its only running on 1 GPU
     # Scalars from different devices are gathered into vectors
-    for k in losses.keys():
-        if not losses[k].dim() == 0:
-            losses[k] = torch.mean(losses[k])
+    # for k in losses.keys():
+    #     if not losses[k].dim() == 0:
+    #         losses[k] = torch.mean(losses[k])
 
     #### Backward Pass
     # Update D
@@ -171,3 +167,31 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
 
     if iteration % config['snapshot_save_iter'] == 0:
         trainer.save_model(config["checkpoint_save_path"], iteration)
+
+
+    if iteration % (config['viz_iter']) == 0:
+
+            viz_max_out = config['viz_max_out']
+
+            if x.size(0) > viz_max_out:
+                viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out]], dim=1)
+            else:
+                viz_images = torch.stack([x, inpainted_result], dim=1)
+
+            # viz_images = viz_images.view(24, 4, 256, 256)
+            # print(f'{viz_images.shape} testcunt')
+            # vutils.save_image(viz_images,
+            #                     'out/images/niter_%03d.png' % (iteration),
+            #                     nrow=3 * 4,
+            #                     normalize=True)
+
+            if x.size(0) > viz_max_out:
+                viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data), -2)
+            else:
+                viz_images = torch.cat((x.data, inpainted_result.data), -2)
+
+            viz_images = apply_colormap(viz_images)
+
+            grid = make_grid(viz_images)
+
+            plt.imsave(f'out/images/{iteration}.png', grid)
