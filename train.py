@@ -17,7 +17,7 @@ config = {
     'dataset': "../Data",
     'checkpoint_save_path': "out",
     'resume': 0,
-    'batch_size': 80,
+    'batch_size': 90,
     'image_shape': [256, 256, 1],
     'mask_shape': [128, 128],
     'mask_batch_same': True,
@@ -38,10 +38,10 @@ config = {
     'beta2': 0.9,
     'n_critic': 5,
     'epochs': 500,
-    'print_iter': 500,
-    'viz_iter': 1000,
+    'print_iter': 1,
+    'viz_iter': 10,
     'viz_max_out': 12,
-    'snapshot_save_iter': 5000,
+    'snapshot_save_iter': 50,
     'seed': None,
 
     # Loss weight
@@ -136,14 +136,14 @@ for epoch in range (config["epochs"]):
         trainer.optimizer_d.step()
 
         log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
-        if iteration % config['print_iter'] == 0:
+        if epoch % config['print_iter'] == 0:
             time_count = time.time() - time_count
             speed = config['print_iter'] / time_count
             speed_msg = f'speed: {speed} batches/s'
             time_count = time.time()
 
             #message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
-            message = f'Epoch: {epoch}, Batch: {iteration}/{train_loader.__len__()}, '
+            message = f'Epoch: {epoch}, Epoch Size: {train_loader.__len__()}, '
 
             for k in log_losses:
                 v = losses.get(k, 0.)
@@ -152,11 +152,11 @@ for epoch in range (config["epochs"]):
             message += speed_msg
             print(message)
 
-        if iteration % config['snapshot_save_iter'] == 0:
+        if epoch % config['snapshot_save_iter'] == 0:
             trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
 
 
-        if iteration % (config['viz_iter']) == 0:
+        if epoch % (config['viz_iter']) == 0:
 
                 viz_max_out = config['viz_max_out']
 
