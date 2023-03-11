@@ -1,75 +1,119 @@
-import sys
-import torch.utils.data as data
-from os import listdir
-from utils.tools import default_loader, is_image_file, normalize
+#!/usr/bin/env python3
+
 import os
+
+import torch.utils.data as data
+import torch
+
+from osgeo import gdal
+import numpy as np
 
 import torchvision.transforms as transforms
 
+# Image transforms
+def normalise(tensor):
+    tensor = (tensor - torch.min(tensor)) / (torch.max(tensor) - torch.min(tensor))
+
+    return tensor
+
+transforms_ = [
+    transforms.ToTensor(),
+    #transforms.Resize(img_size, transforms.InterpolationMode.BICUBIC),
+    transforms.Lambda(normalise),
+    transforms.Normalize((0.5), (0.5)),
+]
+
+
+# Dataloader class
 
 class Dataset(data.Dataset):
-    def __init__(self, data_path, image_shape, with_subfolder=False, random_crop=True, return_name=False):
-        super(Dataset, self).__init__()
-        if with_subfolder:
-            self.samples = self._find_samples_in_subfolders(data_path)
-        else:
-            self.samples = [x for x in listdir(data_path) if is_image_file(x)]
-        self.data_path = data_path
-        self.image_shape = image_shape[:-1]
-        self.random_crop = random_crop
-        self.return_name = return_name
+    def __init__(self, root, img_size=256, mask_size=128, mode="train"):
+        self.transform = transforms.Compose(transforms_)
+        self.img_size = img_size
+        self.mask_size = mask_size
+        self.mode = mode
+        self.tiles = self.tile(root, (img_size, img_size))
+
+    def tile(self, dataset, kernel_size):
+
+        dems = []
+
+        for file in os.listdir(dataset):
+            path = os.path.join(dataset, file)
+
+            pds = gdal.Open(path)
+
+            image = np.array(pds.ReadAsArray())
+
+            img_height, img_width = image.shape
+            tile_height, tile_width = kernel_size
+
+            # If cant divide perfectly
+            if (img_height % tile_height != 0 or img_width % tile_width != 0):
+                new_height = img_height - (img_height % tile_height)
+                new_width = img_width - (img_width % tile_width)
+
+                image = image[:new_height, :new_width]
+
+            tiles_high = img_height // tile_height
+            tiles_wide = img_width // tile_width
+
+            tiled_array = image.reshape(tiles_high,
+                                        tile_height,
+                                        tiles_wide,
+                                        tile_width )
+
+            tiled_array = tiled_array.swapaxes(1, 2)
+
+            tiled_array = tiled_array.reshape(tiles_high * tiles_wide, tile_height, tile_width)
+
+            dems.append(tiled_array)
+
+            # GC should get these, but just to be safe
+            pds = None
+            tiled_array = None
+
+        full = np.concatenate((*dems,))
+
+        dems = None
+
+        return full
+
+
+    def apply_random_mask(self, img):
+        """Randomly masks image"""
+        y1, x1 = np.random.randint(0, self.img_size - self.mask_size, 2)
+        y2, x2 = y1 + self.mask_size, x1 + self.mask_size
+        masked_part = img[:, y1:y2, x1:x2]
+        masked_img = img.clone()
+        masked_img[:, y1:y2, x1:x2] = 1
+
+        return masked_img, masked_part
+
+    def apply_center_mask(self, img):
+        """Mask center part of image"""
+        # Get upper-left pixel coordinate
+        i = (self.img_size - self.mask_size) // 2
+        masked_img = img.clone()
+        masked_img[:, i : i + self.mask_size, i : i + self.mask_size] = 1
+
+        return masked_img, i
 
     def __getitem__(self, index):
-        path = os.path.join(self.data_path, self.samples[index])
-        img = default_loader(path)
 
-        if self.random_crop:
-            imgw, imgh = img.size
-            if imgh < self.image_shape[0] or imgw < self.image_shape[1]:
-                img = transforms.Resize(min(self.image_shape))(img)
-            img = transforms.RandomCrop(self.image_shape)(img)
+        img = self.tiles[index % self.tiles.shape[0]]
+        img = self.transform(img)
+        if self.mode == "train":
+            # For training data perform random mask
+            masked_img, aux = self.apply_random_mask(img)
         else:
-            img = transforms.Resize(self.image_shape)(img)
-            img = transforms.RandomCrop(self.image_shape)(img)
+            # For test data mask the center of the image
+            masked_img, aux = self.apply_center_mask(img)
 
-        img = transforms.ToTensor()(img)  # turn the image to a tensor
-        img = normalize(img)
+        if self.mode != "train":
+            return img, masked_img, aux
 
-        if self.return_name:
-            return self.samples[index], img
-        else:
-            return img
-
-    def _find_samples_in_subfolders(self, dir):
-        """
-        Finds the class folders in a dataset.
-        Args:
-            dir (string): Root directory path.
-        Returns:
-            tuple: (classes, class_to_idx) where classes are relative to (dir), and class_to_idx is a dictionary.
-        Ensures:
-            No class is a subdirectory of another.
-        """
-        if sys.version_info >= (3, 5):
-            # Faster and available in Python 3.5 and above
-            classes = [d.name for d in os.scandir(dir) if d.is_dir()]
-        else:
-            classes = [d for d in os.listdir(dir) if os.path.isdir(os.path.join(dir, d))]
-        classes.sort()
-        class_to_idx = {classes[i]: i for i in range(len(classes))}
-        samples = []
-        for target in sorted(class_to_idx.keys()):
-            d = os.path.join(dir, target)
-            if not os.path.isdir(d):
-                continue
-            for root, _, fnames in sorted(os.walk(d)):
-                for fname in sorted(fnames):
-                    if is_image_file(fname):
-                        path = os.path.join(root, fname)
-                        # item = (path, class_to_idx[target])
-                        # samples.append(item)
-                        samples.append(path)
-        return samples
+        return img
 
     def __len__(self):
-        return len(self.samples)
+        return self.tiles.shape[0]
