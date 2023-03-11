@@ -136,7 +136,7 @@ for epoch in range (config["epochs"]):
         trainer.optimizer_d.step()
 
         log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
-        if epoch % config['print_iter'] == 0:
+        if epoch % config['print_iter'] == 0 and iteration == 0:
             time_count = time.time() - time_count
             speed = config['print_iter'] / time_count
             speed_msg = f'speed: {speed} batches/s'
@@ -152,11 +152,11 @@ for epoch in range (config["epochs"]):
             message += speed_msg
             print(message)
 
-        if epoch % config['snapshot_save_iter'] == 0:
+        if epoch % config['snapshot_save_iter'] == 0 and iteration == 0:
             trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
 
 
-        if epoch % (config['viz_iter']) == 0:
+        if epoch % (config['viz_iter']) == 0 and iteration == 0:
 
                 viz_max_out = config['viz_max_out']
 
