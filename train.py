@@ -1,177 +1,188 @@
+#!/usr/bin/env python3
 import os
 import random
 import time
-import shutil
-from argparse import ArgumentParser
 
 import torch
 import torch.nn as nn
-import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
-from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
+from torch.autograd import Variable
+
+import matplotlib.pyplot as plt
 
 from trainer import Trainer
-from data.dataset import Dataset
-from utils.tools import get_config, random_bbox, mask_image
-from utils.logger import get_logger
+from data.dataset import Dataset # TODO rename when network finished
+from utils.tools import random_bbox, mask_image, apply_colormap, make_grid
 
-parser = ArgumentParser()
-parser.add_argument('--config', type=str, default='configs/config.yaml',
-                    help="training configuration")
-parser.add_argument('--seed', type=int, help='manual seed')
+### Config
+config = {
+    'dataset': "../Data",
+    'checkpoint_save_path': "out/saved_models",
+    'resume': 0,
+    'batch_size': 12,
+    'image_shape': [256, 256, 1],
+    'mask_shape': [128, 128],
+    'mask_batch_same': True,
+    'max_delta_shape': [32, 32],
+    'margin': [0, 0],
+    'discounted_mask': True,
+    'spatial_discounting_gamma': 0.9,
+    'random_crop': True,
+    'mask_type': "hole", # hole | mosaic
+    'mosaic_unit_size': 12,
 
+    # Training parameters
+    'expname': "benchmark",
+    'cuda': False,
+    #gpu_ids = 0
+    'n_cpu': 16, # Might be the same as num_workers #TODO come back after network implemented
+    'num_workers': 4,
+    'lr': 0.0001,
+    'beta1': 0.5,
+    'beta2': 0.9,
+    'n_critic': 5,
+    'epochs': 500000,
+    'print_iter': 5,
+    'viz_iter': 10,
+    'viz_max_out': 12,
+    'snapshot_save_iter': 5000,
+    'seed': None,
 
-def main():
-    args = parser.parse_args()
-    config = get_config(args.config)
+    # Loss weight
+    'coarse_l1_alpha': 1.2,
+    'l1_loss_alpha': 1.2,
+    'ae_loss_alpha': 1.2,
+    'global_wgan_loss_alpha': 1.0,
+    'gan_loss_alpha': 0.001,
+    'wgan_gp_lambda': 10,
 
-    # CUDA configuration
-    cuda = config['cuda']
-    device_ids = config['gpu_ids']
-    if cuda:
-        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in device_ids)
-        device_ids = list(range(len(device_ids)))
-        config['gpu_ids'] = device_ids
-        cudnn.benchmark = True
+    # Network Parameters
+    'input_dim': 1,
+    'ngf': 32,
+    'ndf': 64
+}
 
-    # Configure checkpoint path
-    checkpoint_path = os.path.join('checkpoints',
-                                   config['dataset_name'],
-                                   config['mask_type'] + '_' + config['expname'])
-    if not os.path.exists(checkpoint_path):
-        os.makedirs(checkpoint_path)
-    shutil.copy(args.config, os.path.join(checkpoint_path, os.path.basename(args.config)))
-    writer = SummaryWriter(logdir=checkpoint_path)
-    logger = get_logger(checkpoint_path)    # get logger and configure it at the first call
+##### Initialise
 
-    logger.info("Arguments: {}".format(args))
-    # Set random seed
-    if args.seed is None:
-        args.seed = random.randint(1, 10000)
-    logger.info("Random seed: {}".format(args.seed))
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    if cuda:
-        torch.cuda.manual_seed_all(args.seed)
+cuda = config["cuda"]
+os.makedirs("out/images", exist_ok=True) #TODO implement image checkpoint saving
+os.makedirs(config["checkpoint_save_path"], exist_ok=True)
 
-    # Log the configuration
-    logger.info("Configuration: {}".format(config))
+## Set random seed to allow for training to be recreated
 
-    try:  # for unexpected error logging
-        # Load the dataset
-        logger.info("Training on dataset: {}".format(config['dataset_name']))
-        train_dataset = Dataset(data_path=config['train_data_path'],
-                                with_subfolder=config['data_with_subfolder'],
-                                image_shape=config['image_shape'],
-                                random_crop=config['random_crop'])
-        # val_dataset = Dataset(data_path=config['val_data_path'],
-        #                       with_subfolder=config['data_with_subfolder'],
-        #                       image_size=config['image_size'],
-        #                       random_crop=config['random_crop'])
-        train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-                                                   batch_size=config['batch_size'],
-                                                   shuffle=True,
-                                                   num_workers=config['num_workers'])
-        # val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-        #                                           batch_size=config['batch_size'],
-        #                                           shuffle=False,
-        #                                           num_workers=config['num_workers'])
+if config["seed"] is None:
+    config["seed"] = random.randint(1, 10000)
 
-        # Define the trainer
-        trainer = Trainer(config)
-        logger.info("\n{}".format(trainer.netG))
-        logger.info("\n{}".format(trainer.localD))
-        logger.info("\n{}".format(trainer.globalD))
+seed = config["seed"]
 
-        if cuda:
-            trainer = nn.parallel.DataParallel(trainer, device_ids=device_ids)
-            trainer_module = trainer.module
-        else:
-            trainer_module = trainer
+print(f"Random seed used: {seed}")
+random.seed(seed)
+torch.manual_seed(seed)
+if cuda:
+    torch.cuda.manual_seed_all(seed)
 
-        # Get the resume iteration to restart training
-        start_iteration = trainer_module.resume(config['resume']) if config['resume'] else 1
+##### Dataloader
+## This is a very expensive way of implementing this, as all data is held in memory twice. # TODO implement a fix if time
 
+# Dataloader for training
+train_loader = DataLoader(
+    Dataset(config["dataset"]),
+    batch_size=config["batch_size"],
+    shuffle=True,
+    num_workers=config["n_cpu"],
+)
+
+trainer = Trainer(config)
+#print(trainer.netG)
+#print(trainer.localD)
+#print(trainer.globalD)
+
+if cuda:
+    trainer = trainer.cuda()
+
+# Get the resume iteration to restart training
+start_iteration = trainer.resume(config["resume"]) if config["resume"] else 1
+
+iterable_train_loader = iter(train_loader)
+
+time_count = time.time()
+
+for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this isnt epochs, should change it ot epoch using the data set size
+    # Not sure why this try block is here, TODO remove if possible
+    try:
+        ground_truth = next(iterable_train_loader)
+    except StopIteration:
         iterable_train_loader = iter(train_loader)
+        ground_truth = next(iterable_train_loader)
 
+    # Prepare inputs
+    bboxes = random_bbox(config, batch_size=ground_truth.size(0))
+    x, mask = mask_image(ground_truth, bboxes, config)
+    if cuda:
+        x = x.cuda()
+        mask = mask.cuda()
+        ground_truth = ground_truth.cuda()
+
+    #### Forward pass
+    # Only compute generator loss after 'n_critic' iterations, usually 5 as defined in the Wasserstein GAN paper
+    compute_g_loss = iteration % config["n_critic"] == 0
+    losses, inpainted_result = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
+
+    #### Backward Pass
+    # Update D
+    trainer.optimizer_d.zero_grad()
+    losses['d'] = losses['wgan_d'] + losses['wgan_gp'] * config['wgan_gp_lambda']
+    losses['d'].backward()
+
+    # Update G
+    if compute_g_loss:
+        trainer.optimizer_g.zero_grad()
+        losses['g'] = losses['l1'] * config['l1_loss_alpha'] \
+                      + losses['ae'] * config['ae_loss_alpha'] \
+                      + losses['wgan_g'] * config['gan_loss_alpha']
+        losses['g'].backward()
+        trainer.optimizer_g.step()
+
+    # Has to come afterwards
+    trainer.optimizer_d.step()
+
+    log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
+    if iteration % config['print_iter'] == 0:
+        time_count = time.time() - time_count
+        speed = config['print_iter'] / time_count
+        speed_msg = f'speed: {speed} batches/s'
         time_count = time.time()
 
-        for iteration in range(start_iteration, config['niter'] + 1):
-            try:
-                ground_truth = next(iterable_train_loader)
-            except StopIteration:
-                iterable_train_loader = iter(train_loader)
-                ground_truth = next(iterable_train_loader)
+        message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
 
-            # Prepare the inputs
-            bboxes = random_bbox(config, batch_size=ground_truth.size(0))
-            x, mask = mask_image(ground_truth, bboxes, config)
-            if cuda:
-                x = x.cuda()
-                mask = mask.cuda()
-                ground_truth = ground_truth.cuda()
+        for k in log_losses:
+            v = losses.get(k, 0.)
+            message += '%s: %.6f, ' % (k, v)
 
-            ###### Forward pass ######
-            compute_g_loss = iteration % config['n_critic'] == 0
-            losses, inpainted_result, offset_flow = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
-            # Scalars from different devices are gathered into vectors
-            for k in losses.keys():
-                if not losses[k].dim() == 0:
-                    losses[k] = torch.mean(losses[k])
+        message += speed_msg
+        print(message)
 
-            ###### Backward pass ######
-            # Update D
-            trainer_module.optimizer_d.zero_grad()
-            losses['d'] = losses['wgan_d'] + losses['wgan_gp'] * config['wgan_gp_lambda']
-            losses['d'].backward()
-            trainer_module.optimizer_d.step()
-
-            # Update G
-            if compute_g_loss:
-                trainer_module.optimizer_g.zero_grad()
-                losses['g'] = losses['l1'] * config['l1_loss_alpha'] \
-                              + losses['ae'] * config['ae_loss_alpha'] \
-                              + losses['wgan_g'] * config['gan_loss_alpha']
-                losses['g'].backward()
-                trainer_module.optimizer_g.step()
-
-            # Log and visualization
-            log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
-            if iteration % config['print_iter'] == 0:
-                time_count = time.time() - time_count
-                speed = config['print_iter'] / time_count
-                speed_msg = 'speed: %.2f batches/s ' % speed
-                time_count = time.time()
-
-                message = 'Iter: [%d/%d] ' % (iteration, config['niter'])
-                for k in log_losses:
-                    v = losses.get(k, 0.)
-                    writer.add_scalar(k, v, iteration)
-                    message += '%s: %.6f ' % (k, v)
-                message += speed_msg
-                logger.info(message)
-
-            if iteration % (config['viz_iter']) == 0:
-                viz_max_out = config['viz_max_out']
-                if x.size(0) > viz_max_out:
-                    viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out],
-                                              offset_flow[:viz_max_out]], dim=1)
-                else:
-                    viz_images = torch.stack([x, inpainted_result, offset_flow], dim=1)
-                viz_images = viz_images.view(-1, *list(x.size())[1:])
-                vutils.save_image(viz_images,
-                                  '%s/niter_%03d.png' % (checkpoint_path, iteration),
-                                  nrow=3 * 4,
-                                  normalize=True)
-
-            # Save the model
-            if iteration % config['snapshot_save_iter'] == 0:
-                trainer_module.save_model(checkpoint_path, iteration)
-
-    except Exception as e:  # for unexpected error logging
-        logger.error("{}".format(e))
-        raise e
+    if iteration % config['snapshot_save_iter'] == 0:
+        trainer.save_model(config["checkpoint_save_path"], iteration)
 
 
-if __name__ == '__main__':
-    main()
+    if iteration % (config['viz_iter']) == 0:
+
+            viz_max_out = config['viz_max_out']
+
+            if x.size(0) > viz_max_out:
+                viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out]], dim=1)
+            else:
+                viz_images = torch.stack([x, inpainted_result], dim=1)
+
+            if x.size(0) > viz_max_out:
+                viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data, ground_truth[:viz_max_out].data), -2)
+            else:
+                viz_images = torch.cat((x.data, inpainted_result.data, ground_truth.data), -2)
+
+            viz_images = apply_colormap(viz_images)
+
+            grid = make_grid(viz_images)
+
+            plt.imsave(f'out/images/{iteration}.png', grid)
