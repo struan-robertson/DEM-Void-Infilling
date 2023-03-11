@@ -12,13 +12,13 @@ from torch.autograd import Variable
 import matplotlib.pyplot as plt
 
 from trainer import Trainer
-from data.dataset import Dataset # TODO rename when network finished
+from data.dataset import Dataset
 from utils.tools import random_bbox, mask_image, apply_colormap, make_grid
 
 ### Config
 config = {
     'dataset': "../Data",
-    'checkpoint_save_path': "out/saved_models",
+    'checkpoint_save_path': "out",
     'resume': 0,
     'batch_size': 12,
     'image_shape': [256, 256, 1],
@@ -35,9 +35,7 @@ config = {
     # Training parameters
     'expname': "benchmark",
     'cuda': False,
-    #gpu_ids = 0
-    'n_cpu': 16, # Might be the same as num_workers #TODO come back after network implemented
-    'num_workers': 4,
+    'n_cpu': 16,
     'lr': 0.0001,
     'beta1': 0.5,
     'beta2': 0.9,
@@ -66,8 +64,8 @@ config = {
 ##### Initialise
 
 cuda = config["cuda"]
-os.makedirs("out/images", exist_ok=True) #TODO implement image checkpoint saving
-os.makedirs(config["checkpoint_save_path"], exist_ok=True)
+os.makedirs(os.path.join(config["checkpoint_save_path"], "images"), exist_ok=True)
+os.makedirs(os.path.join(config["checkpoint_save_path"], "saved_models"), exist_ok=True)
 
 ## Set random seed to allow for training to be recreated
 
@@ -81,9 +79,6 @@ random.seed(seed)
 torch.manual_seed(seed)
 if cuda:
     torch.cuda.manual_seed_all(seed)
-
-##### Dataloader
-## This is a very expensive way of implementing this, as all data is held in memory twice. # TODO implement a fix if time
 
 # Dataloader for training
 train_loader = DataLoader(
@@ -164,7 +159,7 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
         print(message)
 
     if iteration % config['snapshot_save_iter'] == 0:
-        trainer.save_model(config["checkpoint_save_path"], iteration)
+        trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
 
 
     if iteration % (config['viz_iter']) == 0:
@@ -185,4 +180,4 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
 
             grid = make_grid(viz_images)
 
-            plt.imsave(f'out/images/{iteration}.png', grid)
+            plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{iteration}.png'), grid)
