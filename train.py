@@ -37,7 +37,7 @@ config = {
     'beta1': 0.5,
     'beta2': 0.9,
     'n_critic': 5,
-    'epochs': 500,
+    'epochs': 1000,
     'print_iter': 1,
     'viz_iter': 10,
     'viz_max_out': 12,
