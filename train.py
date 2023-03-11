@@ -4,10 +4,7 @@ import random
 import time
 
 import torch
-import torch.nn as nn
-import torchvision.utils as vutils
 from torch.utils.data import DataLoader
-from torch.autograd import Variable
 
 import matplotlib.pyplot as plt
 
