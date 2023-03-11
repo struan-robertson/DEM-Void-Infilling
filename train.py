@@ -34,13 +34,13 @@ config = {
 
     # Training parameters
     'expname': "benchmark",
-    'cuda': False,
+    'cuda': True,
     'n_cpu': 16,
     'lr': 0.0001,
     'beta1': 0.5,
     'beta2': 0.9,
     'n_critic': 5,
-    'epochs': 500000,
+    'epochs': 100,
     'print_iter': 5,
     'viz_iter': 10,
     'viz_max_out': 12,
@@ -103,81 +103,78 @@ iterable_train_loader = iter(train_loader)
 
 time_count = time.time()
 
-for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this isnt epochs, should change it ot epoch using the data set size
-    # Not sure why this try block is here, TODO remove if possible
-    try:
-        ground_truth = next(iterable_train_loader)
-    except StopIteration:
-        iterable_train_loader = iter(train_loader)
-        ground_truth = next(iterable_train_loader)
+for epoch in range (config["epochs"]):
 
-    # Prepare inputs
-    bboxes = random_bbox(config, batch_size=ground_truth.size(0))
-    x, mask = mask_image(ground_truth, bboxes, config)
-    if cuda:
-        x = x.cuda()
-        mask = mask.cuda()
-        ground_truth = ground_truth.cuda()
+    for iteration, ground_truth in enumerate(train_loader):
 
-    #### Forward pass
-    # Only compute generator loss after 'n_critic' iterations, usually 5 as defined in the Wasserstein GAN paper
-    compute_g_loss = iteration % config["n_critic"] == 0
-    losses, inpainted_result = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
+        # Prepare inputs
+        bboxes = random_bbox(config, batch_size=ground_truth.size(0))
+        x, mask = mask_image(ground_truth, bboxes, config)
+        if cuda:
+            x = x.cuda()
+            mask = mask.cuda()
+            ground_truth = ground_truth.cuda()
 
-    #### Backward Pass
-    # Update D
-    trainer.optimizer_d.zero_grad()
-    losses['d'] = losses['wgan_d'] + losses['wgan_gp'] * config['wgan_gp_lambda']
-    losses['d'].backward()
+        #### Forward pass
+        # Only compute generator loss after 'n_critic' iterations, usually 5 as defined in the Wasserstein GAN paper
+        compute_g_loss = iteration % config["n_critic"] == 0
+        losses, inpainted_result = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
 
-    # Update G
-    if compute_g_loss:
-        trainer.optimizer_g.zero_grad()
-        losses['g'] = losses['l1'] * config['l1_loss_alpha'] \
-                      + losses['ae'] * config['ae_loss_alpha'] \
-                      + losses['wgan_g'] * config['gan_loss_alpha']
-        losses['g'].backward()
-        trainer.optimizer_g.step()
+        #### Backward Pass
+        # Update D
+        trainer.optimizer_d.zero_grad()
+        losses['d'] = losses['wgan_d'] + losses['wgan_gp'] * config['wgan_gp_lambda']
+        losses['d'].backward()
 
-    # Has to come afterwards
-    trainer.optimizer_d.step()
+        # Update G
+        if compute_g_loss:
+            trainer.optimizer_g.zero_grad()
+            losses['g'] = losses['l1'] * config['l1_loss_alpha'] \
+                        + losses['ae'] * config['ae_loss_alpha'] \
+                        + losses['wgan_g'] * config['gan_loss_alpha']
+            losses['g'].backward()
+            trainer.optimizer_g.step()
 
-    log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
-    if iteration % config['print_iter'] == 0:
-        time_count = time.time() - time_count
-        speed = config['print_iter'] / time_count
-        speed_msg = f'speed: {speed} batches/s'
-        time_count = time.time()
+        # Has to come afterwards
+        trainer.optimizer_d.step()
 
-        message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
+        log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
+        if iteration % config['print_iter'] == 0:
+            time_count = time.time() - time_count
+            speed = config['print_iter'] / time_count
+            speed_msg = f'speed: {speed} batches/s'
+            time_count = time.time()
 
-        for k in log_losses:
-            v = losses.get(k, 0.)
-            message += '%s: %.6f, ' % (k, v)
+            #message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
+            message = f'Epoch: {epoch}, Batch: {iteration}/{train_loader.__len__()}, '
 
-        message += speed_msg
-        print(message)
+            for k in log_losses:
+                v = losses.get(k, 0.)
+                message += '%s: %.6f, ' % (k, v)
 
-    if iteration % config['snapshot_save_iter'] == 0:
-        trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
+            message += speed_msg
+            print(message)
+
+        if iteration % config['snapshot_save_iter'] == 0:
+            trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
 
 
-    if iteration % (config['viz_iter']) == 0:
+        if iteration % (config['viz_iter']) == 0:
 
-            viz_max_out = config['viz_max_out']
+                viz_max_out = config['viz_max_out']
 
-            if x.size(0) > viz_max_out:
-                viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out]], dim=1)
-            else:
-                viz_images = torch.stack([x, inpainted_result], dim=1)
+                if x.size(0) > viz_max_out:
+                    viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out]], dim=1)
+                else:
+                    viz_images = torch.stack([x, inpainted_result], dim=1)
 
-            if x.size(0) > viz_max_out:
-                viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data, ground_truth[:viz_max_out].data), -2)
-            else:
-                viz_images = torch.cat((x.data, inpainted_result.data, ground_truth.data), -2)
+                if x.size(0) > viz_max_out:
+                    viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data, ground_truth[:viz_max_out].data), -2)
+                else:
+                    viz_images = torch.cat((x.data, inpainted_result.data, ground_truth.data), -2)
 
-            viz_images = apply_colormap(viz_images)
+                viz_images = apply_colormap(viz_images)
 
-            grid = make_grid(viz_images)
+                grid = make_grid(viz_images)
 
-            plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{iteration}.png'), grid)
+                plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{iteration}.png'), grid)
