@@ -501,11 +501,7 @@ def apply_colormap(tensor):
 
     tensor = tensor.cpu().detach().numpy()
 
-    print(tensor.shape)
-
-    img = np.empty([tensor.shape[0], (256 * 2), 256, 4])
-
-    print(img.shape)
+    img = np.empty([tensor.shape[0], (256 * 3), 256, 4])
 
     for idx, sample in enumerate(tensor):
         norm = (sample + 1) / 2

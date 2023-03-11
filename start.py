@@ -44,9 +44,9 @@ config = {
     'beta2': 0.9,
     'n_critic': 5,
     'epochs': 500000,
-    'print_iter': 5,
+    'print_iter': 100,
     'viz_iter': 1,
-    'viz_max_out': 16,
+    'viz_max_out': 12,
     'snapshot_save_iter': 5000,
     'seed': None,
 
@@ -118,7 +118,6 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
         ground_truth = next(iterable_train_loader)
 
     # Prepare inputs
-    print(type(ground_truth))
     bboxes = random_bbox(config, batch_size=ground_truth.size(0))
     x, mask = mask_image(ground_truth, bboxes, config)
     if cuda:
@@ -178,17 +177,10 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
             else:
                 viz_images = torch.stack([x, inpainted_result], dim=1)
 
-            # viz_images = viz_images.view(24, 4, 256, 256)
-            # print(f'{viz_images.shape} testcunt')
-            # vutils.save_image(viz_images,
-            #                     'out/images/niter_%03d.png' % (iteration),
-            #                     nrow=3 * 4,
-            #                     normalize=True)
-
             if x.size(0) > viz_max_out:
-                viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data), -2)
+                viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data, ground_truth[:viz_max_out].data), -2)
             else:
-                viz_images = torch.cat((x.data, inpainted_result.data), -2)
+                viz_images = torch.cat((x.data, inpainted_result.data, ground_truth.data), -2)
 
             viz_images = apply_colormap(viz_images)
 
