@@ -6,10 +6,6 @@ from model.networks import Generator, LocalDis, GlobalDis
 
 
 from utils.tools import get_model_list, local_patch, spatial_discounting_mask
-from utils.logger import get_logger
-
-logger = get_logger()
-
 
 class Trainer(nn.Module):
     def __init__(self, config):
@@ -149,6 +145,5 @@ class Trainer(nn.Module):
             self.optimizer_g.load_state_dict(state_dict['gen'])
 
         print("Resume from {} at iteration {}".format(checkpoint_dir, iteration))
-        logger.info("Resume from {} at iteration {}".format(checkpoint_dir, iteration))
 
         return iteration
