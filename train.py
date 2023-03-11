@@ -139,7 +139,7 @@ for epoch in range (config["epochs"]):
         if epoch % config['print_iter'] == 0 and iteration == 0:
             time_count = time.time() - time_count
             speed = config['print_iter'] / time_count
-            speed_msg = f'speed: {speed} batches/s'
+            speed_msg = f'speed: {speed * 60} epochs/min'
             time_count = time.time()
 
             #message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
@@ -153,7 +153,7 @@ for epoch in range (config["epochs"]):
             print(message)
 
         if epoch % config['snapshot_save_iter'] == 0 and iteration == 0:
-            trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), iteration)
+            trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), epoch)
 
 
         if epoch % (config['viz_iter']) == 0 and iteration == 0:
@@ -174,4 +174,4 @@ for epoch in range (config["epochs"]):
 
                 grid = make_grid(viz_images)
 
-                plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{iteration}.png'), grid)
+                plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{epoch}.png'), grid)
