@@ -44,7 +44,7 @@ config = {
     'beta2': 0.9,
     'n_critic': 5,
     'epochs': 500000,
-    'print_iter': 100,
+    'print_iter': 1,
     'viz_iter': 1,
     'viz_max_out': 12,
     'snapshot_save_iter': 5000,
@@ -130,19 +130,12 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
     compute_g_loss = iteration % config["n_critic"] == 0
     losses, inpainted_result, offset_flow = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
 
-    ## TODO Might need to take mean of losses, dont think so tho as its only running on 1 GPU
-    # Scalars from different devices are gathered into vectors
-    # for k in losses.keys():
-    #     if not losses[k].dim() == 0:
-    #         losses[k] = torch.mean(losses[k])
-
     #### Backward Pass
     # Update D
     trainer.optimizer_d.zero_grad()
     losses['d'] = losses['wgan_d'] + losses['wgan_gp'] * config['wgan_gp_lambda']
     losses['d'].backward()
 
-    log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
     # Update G
     if compute_g_loss:
         trainer.optimizer_g.zero_grad()
@@ -155,14 +148,21 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
     # Has to come afterwards
     trainer.optimizer_d.step()
 
+    log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
     if iteration % config['print_iter'] == 0:
         time_count = time.time() - time_count
         speed = config['print_iter'] / time_count
         speed_msg = f'speed: {speed} batches/s'
         time_count = time.time()
 
-        message = 'Iter: [%d/%d] ' % (iteration, config['epochs'])
-        print(losses)
+        message = 'Iter: %d/%d, ' % (iteration, config['epochs'])
+
+        for k in log_losses:
+            v = losses.get(k, 0.)
+            message += '%s: %.6f, ' % (k, v)
+
+        message += speed_msg
+        print(message)
 
     if iteration % config['snapshot_save_iter'] == 0:
         trainer.save_model(config["checkpoint_save_path"], iteration)
