@@ -17,7 +17,7 @@ config = {
     'dataset': "../Data",
     'checkpoint_save_path': "out",
     'resume': 0,
-    'batch_size': 103,
+    'batch_size': 80,
     'image_shape': [256, 256, 1],
     'mask_shape': [128, 128],
     'mask_batch_same': True,
