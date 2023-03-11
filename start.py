@@ -12,9 +12,8 @@ from torch.autograd import Variable
 import matplotlib.pyplot as plt
 
 from trainer import Trainer
-from data.dataset_n import Dataset # TODO rename when network finished
+from data.dataset import Dataset # TODO rename when network finished
 from utils.tools import random_bbox, mask_image, apply_colormap, make_grid
-#from utils.logger import get_logger
 
 ### Config
 config = {
@@ -35,7 +34,7 @@ config = {
 
     # Training parameters
     'expname': "benchmark",
-    'cuda': True,
+    'cuda': False,
     #gpu_ids = 0
     'n_cpu': 16, # Might be the same as num_workers #TODO come back after network implemented
     'num_workers': 4,
