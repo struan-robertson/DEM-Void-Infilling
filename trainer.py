@@ -36,7 +36,7 @@ class Trainer(nn.Module):
         l1_loss = nn.L1Loss()
         losses = {}
 
-        x1, x2, offset_flow = self.netG(x, masks)
+        x1, x2 = self.netG(x, masks)
         local_patch_gt = local_patch(ground_truth, bboxes)
         x1_inpaint = x1 * masks + x * (1. - masks)
         x2_inpaint = x2 * masks + x * (1. - masks)
@@ -75,7 +75,7 @@ class Trainer(nn.Module):
             losses['wgan_g'] = - torch.mean(local_patch_fake_pred) - \
                 torch.mean(global_fake_pred) * self.config['global_wgan_loss_alpha']
 
-        return losses, x2_inpaint, offset_flow
+        return losses, x2_inpaint
 
     def dis_forward(self, netD, ground_truth, x_inpaint):
         assert ground_truth.size() == x_inpaint.size()

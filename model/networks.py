@@ -3,11 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import spectral_norm as spectral_norm_fn
 from torch.nn.utils import weight_norm as weight_norm_fn
-from torchvision import transforms
-from torchvision import utils as vutils
 
 from utils.tools import extract_image_patches, flow_to_image, \
-    reduce_mean, reduce_sum, default_loader, same_padding
+    reduce_mean, reduce_sum, same_padding
 
 
 class Generator(nn.Module):
@@ -22,8 +20,8 @@ class Generator(nn.Module):
 
     def forward(self, x, mask):
         x_stage1 = self.coarse_generator(x, mask)
-        x_stage2, offset_flow = self.fine_generator(x, x_stage1, mask)
-        return x_stage1, x_stage2, offset_flow
+        x_stage2 = self.fine_generator(x, x_stage1, mask)
+        return x_stage1, x_stage2
 
 
 class CoarseGenerator(nn.Module):
@@ -157,7 +155,7 @@ class FineGenerator(nn.Module):
         x = self.pmconv4_downsample(x)
         x = self.pmconv5(x)
         x = self.pmconv6(x)
-        x, offset_flow = self.contextul_attention(x, x, mask)
+        x = self.contextul_attention(x, x, mask)
         x = self.pmconv9(x)
         x = self.pmconv10(x)
         pm = x
@@ -174,7 +172,7 @@ class FineGenerator(nn.Module):
         x = self.allconv17(x)
         x_stage2 = torch.clamp(x, -1., 1.)
 
-        return x_stage2, offset_flow
+        return x_stage2
 
 
 class ContextualAttention(nn.Module):
@@ -260,7 +258,6 @@ class ContextualAttention(nn.Module):
         mm = mm.permute(1, 0, 2, 3) # mm shape: [1, L, 1, 1]
 
         y = []
-        offsets = []
         k = self.fuse_k
         scale = self.softmax_scale    # to fit the PyTorch tensor image value range
         fuse_weight = torch.eye(k).view(1, 1, k, k)  # 1*1*k*k
@@ -304,48 +301,16 @@ class ContextualAttention(nn.Module):
             yi = F.softmax(yi*scale, dim=1)
             yi = yi * mm  # [1, L, H, W]
 
-            offset = torch.argmax(yi, dim=1, keepdim=True)  # 1*1*H*W
-
-            if int_bs != int_fs:
-                # Normalize the offset value to match foreground dimension
-                times = float(int_fs[2] * int_fs[3]) / float(int_bs[2] * int_bs[3])
-                offset = ((offset + 1).float() * times - 1).to(torch.int64)
-            offset = torch.cat([offset//int_fs[3], offset%int_fs[3]], dim=1)  # 1*2*H*W
-
             # deconv for patch pasting
             wi_center = raw_wi[0]
             # yi = F.pad(yi, [0, 1, 0, 1])    # here may need conv_transpose same padding
             yi = F.conv_transpose2d(yi, wi_center, stride=self.rate, padding=1) / 4.  # (B=1, C=128, H=64, W=64)
             y.append(yi)
-            offsets.append(offset)
 
         y = torch.cat(y, dim=0)  # back to the mini-batch
         y.contiguous().view(raw_int_fs)
 
-        offsets = torch.cat(offsets, dim=0)
-        offsets = offsets.view(int_fs[0], 2, *int_fs[2:])
-
-        # case1: visualize optical flow: minus current position
-        h_add = torch.arange(int_fs[2]).view([1, 1, int_fs[2], 1]).expand(int_fs[0], -1, -1, int_fs[3])
-        w_add = torch.arange(int_fs[3]).view([1, 1, 1, int_fs[3]]).expand(int_fs[0], -1, int_fs[2], -1)
-        ref_coordinate = torch.cat([h_add, w_add], dim=1)
-        if self.use_cuda:
-            ref_coordinate = ref_coordinate.cuda()
-
-        offsets = offsets - ref_coordinate
-        # flow = pt_flow_to_image(offsets)
-
-        flow = torch.from_numpy(flow_to_image(offsets.permute(0, 2, 3, 1).cpu().data.numpy())) / 255.
-        flow = flow.permute(0, 3, 1, 2)
-        if self.use_cuda:
-            flow = flow.cuda()
-        # case2: visualize which pixels are attended
-        # flow = torch.from_numpy(highlight_flow((offsets * mask.long()).cpu().data.numpy()))
-
-        if self.rate != 1:
-            flow = F.interpolate(flow, scale_factor=self.rate*4, mode='nearest')
-
-        return y, flow
+        return y
 
 class LocalDis(nn.Module):
     def __init__(self, config, use_cuda=True):
@@ -498,14 +463,3 @@ class Conv2dBlock(nn.Module):
         if self.activation:
             x = self.activation(x)
         return x
-
-
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--imageA', default='', type=str, help='Image A as background patches to reconstruct image B.')
-    parser.add_argument('--imageB', default='', type=str, help='Image B is reconstructed with image A.')
-    parser.add_argument('--imageOut', default='result.png', type=str, help='Image B is reconstructed with image A.')
-    args = parser.parse_args()
-    test_contextual_attention(args)

@@ -35,7 +35,7 @@ config = {
 
     # Training parameters
     'expname': "benchmark",
-    'cuda': False,
+    'cuda': True,
     #gpu_ids = 0
     'n_cpu': 16, # Might be the same as num_workers #TODO come back after network implemented
     'num_workers': 4,
@@ -44,8 +44,8 @@ config = {
     'beta2': 0.9,
     'n_critic': 5,
     'epochs': 500000,
-    'print_iter': 1,
-    'viz_iter': 1,
+    'print_iter': 5,
+    'viz_iter': 10,
     'viz_max_out': 12,
     'snapshot_save_iter': 5000,
     'seed': None,
@@ -128,7 +128,7 @@ for iteration in range(start_iteration, config["epochs"] + 1): # TODO acc this i
     #### Forward pass
     # Only compute generator loss after 'n_critic' iterations, usually 5 as defined in the Wasserstein GAN paper
     compute_g_loss = iteration % config["n_critic"] == 0
-    losses, inpainted_result, offset_flow = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
+    losses, inpainted_result = trainer(x, bboxes, mask, ground_truth, compute_g_loss)
 
     #### Backward Pass
     # Update D
