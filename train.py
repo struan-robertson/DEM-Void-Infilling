@@ -17,7 +17,7 @@ config = {
     'dataset': "../Data",
     'checkpoint_save_path': "out",
     'resume': 0,
-    'batch_size': 80,
+    'batch_size': 90,
     'image_shape': [256, 256, 1],
     'mask_shape': [128, 128],
     'mask_batch_same': True,
@@ -102,6 +102,9 @@ time_count = time.time()
 
 for epoch in range (config["epochs"]):
 
+    # For correctly saving snapshots
+    epoch += 1
+
     for iteration, ground_truth in enumerate(train_loader):
 
         # Prepare inputs
@@ -154,7 +157,6 @@ for epoch in range (config["epochs"]):
 
         if epoch % config['snapshot_save_iter'] == 0 and iteration == 0:
             trainer.save_model(os.path.join(config["checkpoint_save_path"], "saved_models"), epoch)
-
 
         if epoch % (config['viz_iter']) == 0 and iteration == 0:
 
