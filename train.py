@@ -138,6 +138,10 @@ for epoch in range (config["epochs"]):
         # Has to come afterwards
         trainer.optimizer_d.step()
 
+        # TODO Epoch size doesnt change and can just be printed at the start
+        # TODO Print start and end time
+        # FIXME Time per epoch is completely broken
+
         log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
         if epoch % config['print_iter'] == 0 and iteration == 0:
             time_count = time.time() - time_count
