@@ -1,0 +1,244 @@
+#+title: Test
+#+property: header-args :session test
+
+Load a pre trained model and generate some GeoTiffs with it
+
+* Imports
+#+begin_src jupyter-python
+import os
+import random
+
+import numpy as np
+from osgeo import gdal
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+
+from model.networks import Generator
+from utils.tools import random_bbox, mask_image
+#+end_src
+
+#+RESULTS:
+
+* Settings
+#+begin_src jupyter-python
+config = {
+    'dataset_name': "../Testing Data/NPC_final_adj_5mpp_surf.tif",
+    'checkpoint_save_path': "out",
+    'resume': 0,
+    'batch_size': 90,
+    'image_shape': [256, 256, 1],
+    'mask_shape': [128, 128],
+    'mask_batch_same': True,
+    'max_delta_shape': [32, 32],
+    'margin': [0, 0],
+    'discounted_mask': True,
+    'spatial_discounting_gamma': 0.9,
+    'random_crop': True,
+    'mask_type': "hole", # hole | mosaic
+    'mosaic_unit_size': 12,
+
+    # Training parameters
+    'expname': "benchmark",
+    'cuda': False,
+    'n_cpu': 16,
+    'lr': 0.0001,
+    'beta1': 0.5,
+    'beta2': 0.9,
+    'n_critic': 5,
+    'epochs': 1000,
+    'print_iter': 1,
+    'viz_iter': 10,
+    'viz_max_out': 12,
+    'snapshot_save_iter': 50,
+    'seed': 6747,
+
+    # Loss weight
+    'coarse_l1_alpha': 1.2,
+    'l1_loss_alpha': 1.2,
+    'ae_loss_alpha': 1.2,
+    'global_wgan_loss_alpha': 1.0,
+    'gan_loss_alpha': 0.001,
+    'wgan_gp_lambda': 10,
+
+    # Network Parameters
+    'input_dim': 1,
+    'ngf': 32,
+    'ndf': 64
+}
+#+end_src
+
+#+RESULTS:
+
+* Tile Dataset
+#+begin_src jupyter-python
+test = None
+
+def tile(dataset, kernel_size):
+
+    dem = gdal.Open(dataset)
+
+    crs = dem.GetProjection()
+
+    image = np.array(dem.ReadAsArray())
+
+    img_height, img_width = image.shape
+    tile_height, tile_width = kernel_size
+
+    # If cant divide perfectly
+    if (img_height % tile_height != 0 or img_width % tile_width != 0):
+        new_height = img_height - (img_height % tile_height)
+        new_width = img_width - (img_width % tile_width)
+
+        image = image[:new_height, :new_width]
+
+    tiles_high = img_height // tile_height
+    tiles_wide = img_width // tile_width
+
+    tiled_array = image.reshape(tiles_high,
+                                tile_height,
+                                tiles_wide,
+                                tile_width )
+
+    tiled_array = tiled_array.swapaxes(1, 2)
+
+    tiled_array = tiled_array.reshape(tiles_high * tiles_wide, tile_height, tile_width)
+
+    # GC should get this, but just to be safe
+    dem = None
+
+    return tiled_array, crs
+
+#+end_src
+
+#+RESULTS:
+
+* Image Transformations
+#+begin_src jupyter-python
+def normalise(tensor):
+    tensor = (tensor - torch.min(tensor)) / (torch.max(tensor) - torch.min(tensor))
+
+    return tensor
+
+transforms_ = [
+    transforms.ToTensor(),
+    transforms.Lambda(normalise),
+    transforms.Normalize((0.5), (0.5))
+]
+#+end_src
+
+#+RESULTS:
+
+* Setup
+** Seed
+#+begin_src jupyter-python
+seed = config["seed"]
+random.seed(seed)
+torch.manual_seed(seed)
+#+end_src
+
+#+RESULTS:
+: <torch._C.Generator at 0x7f1720cd6490>
+
+** Get Tile
+#+begin_src jupyter-python
+tiled, crs = tile(config["dataset_name"], (256, 256))
+#+end_src
+
+#+RESULTS:
+
+* Infill
+
+Not the most efficient way of doing things but since individual DEM files are (probably) much larger than the tiles the network is trained on.
+Also a lot of data (annoyingly) seems to be basic slopes that arent very interesting.
+ - There maybe is something to be said for trying to find high res (5m) DEMs with consistently complex terrain.
+
+** Workflow
+ - Manually iterate through tiles until an interesting tile is found
+ - Generate infilled DEM
+ - If it is either really good or really shit save to file as it will be good for the report.
+
+** Select Tile
+#+begin_src jupyter-python
+tile_n = 100
+
+dem = tiled[tile_n]
+
+plt.imshow(dem, cmap=plt.cm.terrain)
+plt.colorbar()
+#+end_src
+
+#+RESULTS:
+:RESULTS:
+: <matplotlib.colorbar.Colorbar at 0x7f1665fc9c30>
+[[file:./.ob-jupyter/e8c0ef1636973e9470cb1378b4bbdefc37103a85.png]]
+:END:
+
+** Transform
+
+#+begin_src jupyter-python
+
+#### Transforms
+
+img_min = np.amin(dem)
+img_max = np.amax(dem)
+
+transform = transforms.Compose(transforms_)
+ground_truth = transform(dem)
+
+#### Infill voids
+
+bboxes = random_bbox(config, batch_size=1)
+x, mask = mask_image(ground_truth, bboxes, config)
+
+checkpoint_path = "/home/struan/Development/Inpaint/Final Network/out2/saved_models/gen_00001000.pt"
+
+inpainted_result = None
+
+with torch.no_grad():
+    netG = Generator(config, config["cuda"])
+    netG.load_state_dict(torch.load(checkpoint_path))
+
+    x1, x2 = netG(x, mask)
+    inpainted_result = x2 * mask + x * (1. - mask)
+
+#### De-normalize
+inpainted_result = inpainted_result.cpu().detach().numpy()
+
+inpainted_result = np.squeeze(inpainted_result)
+
+inpainted_result = (inpainted_result * 0.5) + 0.5
+
+inpainted_result = (inpainted_result * (img_max - img_min)) + img_min
+
+#### Show Result
+
+plt.imshow(inpainted_result, cmap=plt.cm.terrain)
+plt.colorbar()
+#+end_src
+
+#+RESULTS:
+: <matplotlib.colorbar.Colorbar at 0x7f16111b1270>
+
+** Save
+
+#+begin_src jupyter-python
+def write_geotiff(filename, arr):
+
+    driver = gdal.GetDriverByName("GTiff")
+    out_ds = driver.Create(filename, arr.shape[1], arr.shape[0], 1, gdal.GDT_Float32)
+    out_ds.SetProjection(crs)
+    band = out_ds.GetRasterBand(1)
+    band.WriteArray(arr)
+    band.FlushCache()
+    band.ComputeStatistics(False)
+
+write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result)
+write_geotiff(f'test_results/{tile_n}_gt.tif', dem)
+#+end_src
+
+#+RESULTS:
