@@ -9,8 +9,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 from trainer import Trainer
-from data.dataset import Dataset
-from utils.tools import random_bbox, mask_image, apply_colormap, make_grid
+from dataset import Dataset
+from tools import random_bbox, mask_image, apply_colormap, make_grid
 
 ### Config
 config = {

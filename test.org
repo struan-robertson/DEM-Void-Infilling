@@ -18,8 +18,8 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 
-from model.networks import Generator
-from utils.tools import random_bbox, mask_image
+from networks import Generator
+from tools import random_bbox, mask_image
 #+end_src
 
 #+RESULTS:

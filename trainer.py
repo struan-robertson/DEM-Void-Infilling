@@ -2,10 +2,9 @@ import os
 import torch
 import torch.nn as nn
 from torch import autograd
-from model.networks import Generator, LocalDis, GlobalDis
 
-
-from utils.tools import get_model_list, local_patch, spatial_discounting_mask
+from networks import Generator, LocalDis, GlobalDis
+from tools import get_model_list, local_patch, spatial_discounting_mask
 
 class Trainer(nn.Module):
     def __init__(self, config):

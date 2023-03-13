@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.nn.utils import spectral_norm as spectral_norm_fn
 from torch.nn.utils import weight_norm as weight_norm_fn
 
-from utils.tools import extract_image_patches, \
+from tools import extract_image_patches, \
     reduce_mean, reduce_sum, same_padding
 
 
