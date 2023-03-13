@@ -1,0 +1,31 @@
+#+title: Terrain Model Processing with Machine Learning
+
+A fork of [[https://github.com/daa233/generative-inpainting-pytorch][this]] PyTorch implementation of the network described in the paper [[https://arxiv.org/abs/1801.07892][Generative Image Inpainting with Contextual Attention]].
+This fork allows for the training of the network on all DEM filetypes (GeoTiff, NASA PDS3/4) supported by [[https://gdal.org/][GDAL]].
+The checkpoint images from this training are saved using the Matplotlib terrain colormap to allow for better visualisation.
+
+* Requirements
+/Known working versions/
+
+ - Python3 3.10
+ - PyTorch 1.13
+ - Torchvision 0.14
+ - Numpy 1.24
+ - GDAL 3.6
+ - Matplotlib 3.6
+
+* Train the model
+Edit config in train.py
+ - ~dataset~ should be the path to a folder containing _one or more_ DEM files, not to the file itself.
+ - Each DEM is tiled into tiles of size specified by the user and then loaded into memory.
+
+#+begin_src bash
+python train.py
+#+end_src
+
+Checkpoint images and models will be saved to the =out= dir, which can be changed in config.
+
+* Test trained model
+The file test.org can be used to load a pre-trained model and generate GeoTiffs from it.
+The file can be run using [[https://orgmode.org/worg/org-contrib/babel/][org-babel]] with the [[https://www.gnu.org/software/emacs/][Emacs]] editor, requiring the [[https://github.com/nnicandro/emacs-jupyter][emacs-jupyter]] plugin, however all of the code would run the exact same in a [[https://jupyter.org/][Jupyter]] notebook.
+This was chosen over a normal python script as a lot of the tiled sections from lunar DEMs can be quite boring and so this allows the user to manually select tiles with interesting features to infill.
