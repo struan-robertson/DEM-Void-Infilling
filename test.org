@@ -142,7 +142,7 @@ torch.manual_seed(seed)
 #+end_src
 
 #+RESULTS:
-: <torch._C.Generator at 0x7f1720cd6490>
+: <torch._C.Generator at 0x7f34eaa631d0>
 
 ** Get Tile
 #+begin_src jupyter-python
@@ -164,7 +164,7 @@ Also a lot of data (annoyingly) seems to be basic slopes that arent very interes
 
 ** Select Tile
 #+begin_src jupyter-python
-tile_n = 100
+tile_n = 160
 
 dem = tiled[tile_n]
 
@@ -174,8 +174,8 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7f1665fc9c30>
-[[file:./.ob-jupyter/e8c0ef1636973e9470cb1378b4bbdefc37103a85.png]]
+: <matplotlib.colorbar.Colorbar at 0x7f3336928a90>
+[[file:./.ob-jupyter/c740e152c17db2cc2b737bb03ed21b2824f7d2ce.png]]
 :END:
 
 ** Transform
@@ -222,11 +222,17 @@ plt.colorbar()
 #+end_src
 
 #+RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7f16111b1270>
+:RESULTS:
+: <matplotlib.colorbar.Colorbar at 0x7f33369adc00>
+[[file:./.ob-jupyter/5bbdc5b1bb86f50ac5ca06b0f29abce002eb4b9e.png]]
+:END:
 
 ** Save
 
 #+begin_src jupyter-python
+if not os.path.exists('test_results'):
+    os.makedirs('test_results')
+
 def write_geotiff(filename, arr):
 
     driver = gdal.GetDriverByName("GTiff")
