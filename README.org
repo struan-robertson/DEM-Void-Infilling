@@ -26,6 +26,14 @@ python train.py
 Checkpoint images and models will be saved to the =out= dir, which can be changed in config.
 
 * Test trained model
-The file test.org can be used to load a pre-trained model and generate GeoTiffs from it.
+The file =test.org= can be used to load a pre-trained model and generate GeoTiffs from it.
 The file can be run using [[https://orgmode.org/worg/org-contrib/babel/][org-babel]] with the [[https://www.gnu.org/software/emacs/][Emacs]] editor, requiring the [[https://github.com/nnicandro/emacs-jupyter][emacs-jupyter]] plugin, however all of the code would run the exact same in a [[https://jupyter.org/][Jupyter]] notebook.
 This was chosen over a normal python script as a lot of the tiled sections from lunar DEMs can be quite boring and so this allows the user to manually select tiles with interesting features to infill.
+
+* Training Results
+Training over all [[https://pgda.gsfc.nasa.gov/products/78][High-Resolution LOLA Lunar South Pole DEMs]] excluding the =NPC= DEM, which was used for testing the network.
+The model was trained for 1000 epochs with a batch size of 90, taking roughly 14 hours on a Nvidia A100 80GB GPU.
+
+** Training Checkpoints
+*** Epoch 960
+[[file:examples/train_960.png]]
