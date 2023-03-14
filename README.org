@@ -35,6 +35,21 @@ Training over all [[https://pgda.gsfc.nasa.gov/products/78][High-Resolution LOLA
 The model was trained for 1000 epochs with a batch size of 90, taking roughly 14 hours on a Nvidia A100 80GB GPU.
 
 ** Training Checkpoints
-*** Epoch 960
 #+html: <h3 align="center">Epoch 960</h3>
 [[file:examples/train_960.png]]
+
+#+html: <h3 align="center">Epoch 1000</h3>
+[[file:examples/train_1000.png]]
+
+** 3D Render of Infilling Results with Novel Data
+[[file:examples/7.png]]
+[[file:examples/9.png]]
+[[file:examples/11.png]]
+[[file:examples/12.png]]
+[[file:examples/13.png]]
+[[file:examples/14.png]]
+[[file:examples/15.png]]
+[[file:examples/16.png]]
+[[file:examples/17.png]]
+[[file:examples/19.png]]
+[[file:examples/120.png]]
