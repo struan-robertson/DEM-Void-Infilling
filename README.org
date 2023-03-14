@@ -36,4 +36,5 @@ The model was trained for 1000 epochs with a batch size of 90, taking roughly 14
 
 ** Training Checkpoints
 *** Epoch 960
+#+html: <h3 align="center">Epoch 960</h3>
 [[file:examples/train_960.png]]
