@@ -27,7 +27,7 @@ from tools import random_bbox, mask_image
 * Settings
 #+begin_src jupyter-python
 config = {
-    'dataset_name': "../Testing Data/NPC_downsample.tif",
+    'dataset_name': "../Testing Data/NPC_cubic.tif",
     'checkpoint_save_path': "out",
     'resume': 0,
     'batch_size': 90,
@@ -184,8 +184,8 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fe3cf32dc30>
-[[file:./.ob-jupyter/5fb72e6ea8031f935ec4c0e2ac660b21263665a0.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fe3ce4dfa00>
+[[file:./.ob-jupyter/55e515f86edd8d1a0d3234b6c59488a2ae265b0b.png]]
 :END:
 
 ** Transform
@@ -242,8 +242,8 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fe3cf21f3d0>
-[[file:./.ob-jupyter/5fb72e6ea8031f935ec4c0e2ac660b21263665a0.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fe3ce858a00>
+[[file:./.ob-jupyter/55e515f86edd8d1a0d3234b6c59488a2ae265b0b.png]]
 :END:
 
 ** Save
@@ -262,8 +262,8 @@ def write_geotiff(filename, arr):
     upper_left, pixel_width, rotation, upper_right, rotation, pixel_height = geo_transform
 
     # Calculate tile coordinates
-    upper_left *= (tile_n + 1)
-    upper_right *= (tile_n + 1)
+    upper_left += (tile_n + 1) * 256
+    upper_right += (tile_n + 1) * 256
 
     # Set Geo-transform
     out_ds.SetGeoTransform((upper_left, pixel_width, rotation, upper_right, rotation, pixel_height))
