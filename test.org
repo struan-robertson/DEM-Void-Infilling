@@ -216,7 +216,7 @@ ground_truth = transform(dem)
 
 #### Infill voids
 
-bboxes = random_bbox(config, batch_size=1)
+bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
 x, mask = mask_image(ground_truth, bboxes, config)
 
 checkpoint_path = "/home/struan/Development/Inpaint/Final Network/out2/saved_models/gen_00001000.pt"
@@ -236,14 +236,15 @@ ground_truth = denormalize(ground_truth, img_max, img_min)
 
 #### Show Result
 
-plt.imshow(ground_truth, cmap=plt.cm.terrain)
+plt.imshow(inpainted_result, cmap=plt.cm.terrain)
 plt.colorbar()
 #+end_src
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fe3ce858a00>
-[[file:./.ob-jupyter/55e515f86edd8d1a0d3234b6c59488a2ae265b0b.png]]
+: tensor([[ 64,  64, 128, 128]])
+: <matplotlib.colorbar.Colorbar at 0x7fe3cccc72e0>
+[[file:./.ob-jupyter/8d4d06373203452465c9d0094319104eb8a6765f.png]]
 :END:
 
 ** Save
