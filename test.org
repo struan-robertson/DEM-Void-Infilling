@@ -27,7 +27,7 @@ from tools import random_bbox, mask_image
 * Settings
 #+begin_src jupyter-python
 config = {
-    'dataset_name': "../Testing Data/NPC_final_adj_5mpp_surf.tif",
+    'dataset_name': "../Testing Data/NPC_downsample.tif",
     'checkpoint_save_path': "out",
     'resume': 0,
     'batch_size': 90,
@@ -83,6 +83,7 @@ def tile(dataset, kernel_size):
     dem = gdal.Open(dataset)
 
     crs = dem.GetProjection()
+    geo_transform = dem.GetGeoTransform()
 
     image = np.array(dem.ReadAsArray())
 
@@ -111,7 +112,7 @@ def tile(dataset, kernel_size):
     # GC should get this, but just to be safe
     dem = None
 
-    return tiled_array, crs
+    return tiled_array, crs, geo_transform
 
 #+end_src
 
@@ -135,6 +136,7 @@ transforms_ = [
 
 * Setup
 ** Seed
+
 #+begin_src jupyter-python
 seed = config["seed"]
 random.seed(seed)
@@ -142,11 +144,11 @@ torch.manual_seed(seed)
 #+end_src
 
 #+RESULTS:
-: <torch._C.Generator at 0x7f34eaa631d0>
+: <torch._C.Generator at 0x7fe58f68f1f0>
 
 ** Get Tile
 #+begin_src jupyter-python
-tiled, crs = tile(config["dataset_name"], (256, 256))
+tiled, crs, geo_transform = tile(config["dataset_name"], (256, 256))
 #+end_src
 
 #+RESULTS:
@@ -163,8 +165,16 @@ Also a lot of data (annoyingly) seems to be basic slopes that arent very interes
  - If it is either really good or really shit save to file as it will be good for the report.
 
 ** Select Tile
+
 #+begin_src jupyter-python
-tile_n = 160
+print(len(tiled))
+#+end_src
+
+#+RESULTS:
+: 49
+
+#+begin_src jupyter-python
+tile_n = 0
 
 dem = tiled[tile_n]
 
@@ -174,11 +184,25 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7f3336928a90>
-[[file:./.ob-jupyter/c740e152c17db2cc2b737bb03ed21b2824f7d2ce.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fe3cf32dc30>
+[[file:./.ob-jupyter/5fb72e6ea8031f935ec4c0e2ac660b21263665a0.png]]
 :END:
 
 ** Transform
+
+*** De-normalize
+#+begin_src jupyter-python
+def denormalize(tensor, max, min):
+    arr = tensor.cpu().detach().numpy()
+
+    arr = np.squeeze(arr)
+    arr = (arr * 0.5) + 0.5
+    arr = (arr * (max - min)) + min
+
+    return arr
+#+end_src
+
+#+RESULTS:
 
 #+begin_src jupyter-python
 
@@ -207,24 +231,19 @@ with torch.no_grad():
     inpainted_result = x2 * mask + x * (1. - mask)
 
 #### De-normalize
-inpainted_result = inpainted_result.cpu().detach().numpy()
-
-inpainted_result = np.squeeze(inpainted_result)
-
-inpainted_result = (inpainted_result * 0.5) + 0.5
-
-inpainted_result = (inpainted_result * (img_max - img_min)) + img_min
+inpainted_result = denormalize(inpainted_result, img_max, img_min)
+ground_truth = denormalize(ground_truth, img_max, img_min)
 
 #### Show Result
 
-plt.imshow(inpainted_result, cmap=plt.cm.terrain)
+plt.imshow(ground_truth, cmap=plt.cm.terrain)
 plt.colorbar()
 #+end_src
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7f33369adc00>
-[[file:./.ob-jupyter/5bbdc5b1bb86f50ac5ca06b0f29abce002eb4b9e.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fe3cf21f3d0>
+[[file:./.ob-jupyter/5fb72e6ea8031f935ec4c0e2ac660b21263665a0.png]]
 :END:
 
 ** Save
@@ -238,13 +257,24 @@ def write_geotiff(filename, arr):
     driver = gdal.GetDriverByName("GTiff")
     out_ds = driver.Create(filename, arr.shape[1], arr.shape[0], 1, gdal.GDT_Float32)
     out_ds.SetProjection(crs)
+
+    # Get properties from input DEM
+    upper_left, pixel_width, rotation, upper_right, rotation, pixel_height = geo_transform
+
+    # Calculate tile coordinates
+    upper_left *= (tile_n + 1)
+    upper_right *= (tile_n + 1)
+
+    # Set Geo-transform
+    out_ds.SetGeoTransform((upper_left, pixel_width, rotation, upper_right, rotation, pixel_height))
+
     band = out_ds.GetRasterBand(1)
     band.WriteArray(arr)
     band.FlushCache()
     band.ComputeStatistics(False)
 
 write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result)
-write_geotiff(f'test_results/{tile_n}_gt.tif', dem)
+write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
 #+end_src
 
 #+RESULTS:
