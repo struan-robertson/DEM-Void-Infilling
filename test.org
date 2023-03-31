@@ -22,6 +22,7 @@ from networks import Generator
 from tools import random_bbox, mask_image
 from blend import blend_images
 
+import ipdb
 #+End_src
 
 #+RESULTS:
@@ -173,7 +174,7 @@ torch.manual_seed(seed)
 #+end_src
 
 #+RESULTS:
-: <torch._C.Generator at 0x7fdbd249f1f0>
+: <torch._C.Generator at 0x7fccb88ddd30>
 
 ** Get Tile
 #+begin_src jupyter-python
@@ -208,18 +209,17 @@ tile_n = 0
 dem = tiled[tile_n]
 
 plt.imshow(dem, cmap=plt.cm.terrain)
+plt.title("Ground Truth")
 plt.colorbar()
 #+end_src
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fd99f54bd60>
-[[file:./.ob-jupyter/2e5f50cb1978161235998340daa74934e315ac00.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fcaf5b774f0>
+[[file:./.ob-jupyter/de67700390a1ad545457c8fce51d851d367ef854.png]]
 :END:
 
-** Transform
-
-*** Infill
+** Infill
 #+begin_src jupyter-python
 
 #### Transforms
@@ -230,7 +230,7 @@ img_max = np.amax(dem)
 transform = transforms.Compose(transforms_)
 ground_truth = transform(dem)
 
-#### Infill voids
+#### Infill void
 
 # Remember (start_x, start_y, size_x, size_y)
 bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
@@ -252,19 +252,9 @@ with torch.no_grad():
 #### De-normalize
 inpainted_result_dn = denormalize(inpainted_result, img_max, img_min)
 ground_truth_dn = denormalize(ground_truth, img_max, img_min)
-
-#### Show Result
-
-plt.imshow(inpainted_result_dn, cmap=plt.cm.terrain)
-plt.colorbar()
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fd99f7a5ab0>
-[[file:./.ob-jupyter/d42f0854b7cc774e57e8dc3b92c800067ad03367.png]]
-:END:
-
 ** Poisson Blending
 #+begin_src jupyter-python
 mask = mask.cpu().detach().numpy()
@@ -295,7 +285,7 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/f49ce07c8b5bcb2f689d883eb9e7cf4ae3c4a7c5.png]]
+[[file:./.ob-jupyter/5e8c9efb246996bb384d33cfeaab3c4d866ddb8f.png]]
 
 ** Save
 
@@ -330,43 +320,3 @@ write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth_dn)
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-# [goto error]
-#+begin_example
----------------------------------------------------------------------------
-ValueError                                Traceback (most recent call last)
-Cell In[30], line 25
-     22     band.FlushCache()
-     23     band.ComputeStatistics(False)
----> 25 write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result)
-     26 write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
-
-Cell In[30], line 21, in write_geotiff(filename, arr)
-     18 out_ds.SetGeoTransform((upper_left, pixel_width, rotation, upper_right, rotation, pixel_height))
-     20 band = out_ds.GetRasterBand(1)
----> 21 band.WriteArray(arr)
-     22 band.FlushCache()
-     23 band.ComputeStatistics(False)
-
-File /usr/lib/python3.10/site-packages/osgeo/gdal.py:4163, in Band.WriteArray(self, array, xoff, yoff, resample_alg, callback, callback_data)
-   4157 def WriteArray(self, array, xoff=0, yoff=0,
-   4158                resample_alg=gdalconst.GRIORA_NearestNeighbour,
-   4159                callback=None,
-   4160                callback_data=None):
-   4161     from osgeo import gdal_array
--> 4163     return gdal_array.BandWriteArray(self, array, xoff, yoff,
-   4164                                       resample_alg=resample_alg,
-   4165                                       callback=callback,
-   4166                                       callback_data=callback_data)
-
-File /usr/lib/python3.10/site-packages/osgeo/gdal_array.py:468, in BandWriteArray(band, array, xoff, yoff, resample_alg, callback, callback_data)
-    464 """Pure python implementation of writing a chunk of a GDAL file
-    465 from a numpy array.  Used by the gdal.Band.WriteArray method."""
-    467 if array is None or len(array.shape) != 2:
---> 468     raise ValueError("expected array of dim 2")
-    470 xsize = array.shape[1]
-    471 ysize = array.shape[0]
-
-ValueError: expected array of dim 2
-#+end_example
-:END:
