@@ -109,10 +109,18 @@ def local_patch(x, bbox_list):
     return torch.stack(patches, dim=0)
 
 
-def mask_image(x, bboxes, config):
+def mask_image(x, bboxes, config, train=True):
     height, width, _ = config['image_shape']
     max_delta_h, max_delta_w = config['max_delta_shape']
-    mask = bbox2mask(bboxes, height, width, max_delta_h, max_delta_w)
+    
+    if train:
+        mask = bbox2mask(bboxes, height, width, max_delta_h, max_delta_w)
+    else:
+        mask = torch.zeros((1, 1, height, width), dtype=torch.float32)
+        bbox = bboxes[0]
+        mask[0, :, bbox[0]:(bbox[0] + bbox[2] + 1), bbox[1]:(bbox[1] + bbox[3] + 1)] = 1
+        
+    
     if x.is_cuda:
         mask = mask.cuda()
 

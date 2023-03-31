@@ -1,7 +1,7 @@
 #+title: Test
 #+property: header-args :session test
 
-Load a pre trained model and generate some GeoTiffs with it
+Load a pre-trained model and generate some GeoTiffs with it
 
 * Imports
 #+begin_src jupyter-python
@@ -20,11 +20,16 @@ import torchvision.transforms as transforms
 
 from networks import Generator
 from tools import random_bbox, mask_image
-#+end_src
+from blend import blend_images
+
+#+End_src
 
 #+RESULTS:
 
 * Settings
+
+TODO use TOML
+
 #+begin_src jupyter-python
 config = {
     'dataset_name': "../Testing Data/NPC_cubic.tif",
@@ -120,11 +125,34 @@ def tile(dataset, kernel_size):
 
 * Image Transformations
 #+begin_src jupyter-python
+# Normalise data to between 0<->1
 def normalise(tensor):
     tensor = (tensor - torch.min(tensor)) / (torch.max(tensor) - torch.min(tensor))
 
     return tensor
 
+# Return data from -1<->1 normalisation to original state
+def denormalize(tensor, max, min):
+    arr = tensor.cpu().detach().numpy()
+
+    arr = np.squeeze(arr)
+    arr = (arr * 0.5) + 0.5
+    arr = (arr * (max - min)) + min
+
+    return arr
+
+# Return data from -1<->1 normalisation to 0<->1 normalisation
+# Used as poisson blending requires the DEM data to be 0<->1 but the inpainted DEM is returened -1<->1
+def partial_dn(tensor):
+
+    arr = tensor.cpu().detach().numpy()
+
+    arr = np.squeeze(arr)
+    arr = (arr * 0.5) + 0.5
+
+    return arr
+
+# Transforms applied to each tile
 transforms_ = [
     transforms.ToTensor(),
     transforms.Lambda(normalise),
@@ -137,6 +165,7 @@ transforms_ = [
 * Setup
 ** Seed
 
+Can probably get rid of this, no training is happening
 #+begin_src jupyter-python
 seed = config["seed"]
 random.seed(seed)
@@ -144,7 +173,7 @@ torch.manual_seed(seed)
 #+end_src
 
 #+RESULTS:
-: <torch._C.Generator at 0x7fe58f68f1f0>
+: <torch._C.Generator at 0x7fdbd249f1f0>
 
 ** Get Tile
 #+begin_src jupyter-python
@@ -184,26 +213,13 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fe3ce4dfa00>
-[[file:./.ob-jupyter/55e515f86edd8d1a0d3234b6c59488a2ae265b0b.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fd99f54bd60>
+[[file:./.ob-jupyter/2e5f50cb1978161235998340daa74934e315ac00.png]]
 :END:
 
 ** Transform
 
-*** De-normalize
-#+begin_src jupyter-python
-def denormalize(tensor, max, min):
-    arr = tensor.cpu().detach().numpy()
-
-    arr = np.squeeze(arr)
-    arr = (arr * 0.5) + 0.5
-    arr = (arr * (max - min)) + min
-
-    return arr
-#+end_src
-
-#+RESULTS:
-
+*** Infill
 #+begin_src jupyter-python
 
 #### Transforms
@@ -216,12 +232,15 @@ ground_truth = transform(dem)
 
 #### Infill voids
 
+# Remember (start_x, start_y, size_x, size_y)
 bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
-x, mask = mask_image(ground_truth, bboxes, config)
+x, mask = mask_image(ground_truth, bboxes, config, train=False)
 
 checkpoint_path = "/home/struan/Development/Inpaint/Final Network/out2/saved_models/gen_00001000.pt"
 
+# TODO dont need to store the inpainted result anymore
 inpainted_result = None
+x2 = None
 
 with torch.no_grad():
     netG = Generator(config, config["cuda"])
@@ -231,21 +250,52 @@ with torch.no_grad():
     inpainted_result = x2 * mask + x * (1. - mask)
 
 #### De-normalize
-inpainted_result = denormalize(inpainted_result, img_max, img_min)
-ground_truth = denormalize(ground_truth, img_max, img_min)
+inpainted_result_dn = denormalize(inpainted_result, img_max, img_min)
+ground_truth_dn = denormalize(ground_truth, img_max, img_min)
 
 #### Show Result
 
-plt.imshow(inpainted_result, cmap=plt.cm.terrain)
+plt.imshow(inpainted_result_dn, cmap=plt.cm.terrain)
 plt.colorbar()
 #+end_src
 
 #+RESULTS:
 :RESULTS:
-: tensor([[ 64,  64, 128, 128]])
-: <matplotlib.colorbar.Colorbar at 0x7fe3cccc72e0>
-[[file:./.ob-jupyter/8d4d06373203452465c9d0094319104eb8a6765f.png]]
+: <matplotlib.colorbar.Colorbar at 0x7fd99f7a5ab0>
+[[file:./.ob-jupyter/d42f0854b7cc774e57e8dc3b92c800067ad03367.png]]
 :END:
+
+** Poisson Blending
+#+begin_src jupyter-python
+mask = mask.cpu().detach().numpy()
+mask = np.squeeze(mask)
+
+infill = partial_dn(x2)
+gt = partial_dn(ground_truth)
+
+blended = blend_images(infill, gt, mask)
+
+blended = (blended * (img_max - img_min)) + img_min
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python
+plt.figure(figsize=(15,15))
+plt.subplot(1,3,1)
+plt.imshow(ground_truth_dn, cmap='terrain')
+plt.title("Ground Truth")
+plt.subplot(1,3,2)
+plt.imshow(inpainted_result_dn, cmap='terrain')
+plt.title("Inpainted Result")
+plt.subplot(1,3,3)
+plt.imshow(blended, cmap='terrain')
+plt.title("Poisson Blended")
+plt.show()
+#+end_src
+
+#+RESULTS:
+[[file:./.ob-jupyter/f49ce07c8b5bcb2f689d883eb9e7cf4ae3c4a7c5.png]]
 
 ** Save
 
@@ -274,8 +324,49 @@ def write_geotiff(filename, arr):
     band.FlushCache()
     band.ComputeStatistics(False)
 
-write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result)
-write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
+write_geotiff(f'test_results/{tile_n}_inpaint_poisson.tif', blended)
+write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result_dn)
+write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth_dn)
 #+end_src
 
 #+RESULTS:
+:RESULTS:
+# [goto error]
+#+begin_example
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+Cell In[30], line 25
+     22     band.FlushCache()
+     23     band.ComputeStatistics(False)
+---> 25 write_geotiff(f'test_results/{tile_n}_inpaint.tif', inpainted_result)
+     26 write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
+
+Cell In[30], line 21, in write_geotiff(filename, arr)
+     18 out_ds.SetGeoTransform((upper_left, pixel_width, rotation, upper_right, rotation, pixel_height))
+     20 band = out_ds.GetRasterBand(1)
+---> 21 band.WriteArray(arr)
+     22 band.FlushCache()
+     23 band.ComputeStatistics(False)
+
+File /usr/lib/python3.10/site-packages/osgeo/gdal.py:4163, in Band.WriteArray(self, array, xoff, yoff, resample_alg, callback, callback_data)
+   4157 def WriteArray(self, array, xoff=0, yoff=0,
+   4158                resample_alg=gdalconst.GRIORA_NearestNeighbour,
+   4159                callback=None,
+   4160                callback_data=None):
+   4161     from osgeo import gdal_array
+-> 4163     return gdal_array.BandWriteArray(self, array, xoff, yoff,
+   4164                                       resample_alg=resample_alg,
+   4165                                       callback=callback,
+   4166                                       callback_data=callback_data)
+
+File /usr/lib/python3.10/site-packages/osgeo/gdal_array.py:468, in BandWriteArray(band, array, xoff, yoff, resample_alg, callback, callback_data)
+    464 """Pure python implementation of writing a chunk of a GDAL file
+    465 from a numpy array.  Used by the gdal.Band.WriteArray method."""
+    467 if array is None or len(array.shape) != 2:
+--> 468     raise ValueError("expected array of dim 2")
+    470 xsize = array.shape[1]
+    471 ysize = array.shape[0]
+
+ValueError: expected array of dim 2
+#+end_example
+:END:
