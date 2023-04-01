@@ -22,7 +22,7 @@ from networks import Generator
 from tools import random_bbox, mask_image
 from blend import blend_images
 
-import ipdb
+from ipdb import set_trace
 #+End_src
 
 #+RESULTS:
@@ -82,8 +82,6 @@ config = {
 
 * Tile Dataset
 #+begin_src jupyter-python
-test = None
-
 def tile(dataset, kernel_size):
 
     dem = gdal.Open(dataset)
@@ -91,7 +89,8 @@ def tile(dataset, kernel_size):
     crs = dem.GetProjection()
     geo_transform = dem.GetGeoTransform()
 
-    image = np.array(dem.ReadAsArray())
+    # image = np.array(dem.ReadAsArray())
+    image = dem.ReadAsArray()
 
     img_height, img_width = image.shape
     tile_height, tile_width = kernel_size
@@ -174,7 +173,7 @@ torch.manual_seed(seed)
 #+end_src
 
 #+RESULTS:
-: <torch._C.Generator at 0x7fccb88ddd30>
+: <torch._C.Generator at 0x7f664d287270>
 
 ** Get Tile
 #+begin_src jupyter-python
@@ -211,11 +210,12 @@ dem = tiled[tile_n]
 plt.imshow(dem, cmap=plt.cm.terrain)
 plt.title("Ground Truth")
 plt.colorbar()
+
 #+end_src
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7fcaf5b774f0>
+: <matplotlib.colorbar.Colorbar at 0x7f649e57ce80>
 [[file:./.ob-jupyter/de67700390a1ad545457c8fce51d851d367ef854.png]]
 :END:
 
@@ -238,11 +238,11 @@ x, mask = mask_image(ground_truth, bboxes, config, train=False)
 
 checkpoint_path = "/home/struan/Development/Inpaint/Final Network/out2/saved_models/gen_00001000.pt"
 
-# TODO dont need to store the inpainted result anymore
 inpainted_result = None
 x2 = None
 
 with torch.no_grad():
+
     netG = Generator(config, config["cuda"])
     netG.load_state_dict(torch.load(checkpoint_path))
 
@@ -267,8 +267,6 @@ blended = blend_images(infill, gt, mask)
 
 blended = (blended * (img_max - img_min)) + img_min
 #+end_src
-
-#+RESULTS:
 
 #+begin_src jupyter-python
 plt.figure(figsize=(15,15))
