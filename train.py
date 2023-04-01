@@ -6,57 +6,15 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
+import toml
 import matplotlib.pyplot as plt
 
 from trainer import Trainer
 from dataset import Dataset
 from tools import random_bbox, mask_image, apply_colormap, make_grid
 
-### Config
-config = {
-    'dataset': "../Data",
-    'checkpoint_save_path': "out",
-    'resume': 0,
-    'batch_size': 90,
-    'image_shape': [256, 256, 1],
-    'mask_shape': [128, 128],
-    'mask_batch_same': True,
-    'max_delta_shape': [32, 32],
-    'margin': [0, 0],
-    'discounted_mask': True,
-    'spatial_discounting_gamma': 0.9,
-    'random_crop': True,
-    'mask_type': "hole", # hole | mosaic
-    'mosaic_unit_size': 12,
-
-    # Training parameters
-    'expname': "benchmark",
-    'cuda': True,
-    'n_cpu': 16,
-    'lr': 0.0001,
-    'beta1': 0.5,
-    'beta2': 0.9,
-    'n_critic': 5,
-    'epochs': 1000,
-    'print_iter': 1,
-    'viz_iter': 10,
-    'viz_max_out': 12,
-    'snapshot_save_iter': 50,
-    'seed': None,
-
-    # Loss weight
-    'coarse_l1_alpha': 1.2,
-    'l1_loss_alpha': 1.2,
-    'ae_loss_alpha': 1.2,
-    'global_wgan_loss_alpha': 1.0,
-    'gan_loss_alpha': 0.001,
-    'wgan_gp_lambda': 10,
-
-    # Network Parameters
-    'input_dim': 1,
-    'ngf': 32,
-    'ndf': 64
-}
+with open('config.toml', 'r') as file:
+    config = toml.load(file)
 
 ##### Initialise
 
