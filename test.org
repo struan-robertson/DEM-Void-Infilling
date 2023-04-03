@@ -176,7 +176,7 @@ plt.colorbar()
 
 #+RESULTS:
 :RESULTS:
-: <matplotlib.colorbar.Colorbar at 0x7f212b9b8640>
+: <matplotlib.colorbar.Colorbar at 0x7fbc2b73acb0>
 [[file:./.ob-jupyter/de67700390a1ad545457c8fce51d851d367ef854.png]]
 :END:
 
@@ -197,7 +197,7 @@ ground_truth = transform(dem)
 bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
 x, mask = mask_image(ground_truth, bboxes, config, train=False)
 
-checkpoint_path = "/home/struan/Development/Inpaint/Final Network/out2/saved_models/gen_00001000.pt"
+checkpoint_path = "out/saved_models/gen_00000100.pt"
 
 inpainted_result = None
 x2 = None

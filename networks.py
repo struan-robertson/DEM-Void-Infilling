@@ -18,6 +18,10 @@ class Generator(nn.Module):
         self.coarse_generator = CoarseGenerator(self.input_dim, self.cnum, self.use_cuda)
         self.fine_generator = FineGenerator(self.input_dim, self.cnum, self.use_cuda)
 
+        # print(self.coarse_generator)
+        # print('\n\n\n')
+        # print(self.fine_generator)
+
     def forward(self, x, mask):
         x_stage1 = self.coarse_generator(x, mask)
         x_stage2 = self.fine_generator(x, x_stage1, mask)
@@ -380,6 +384,16 @@ def dis_conv(input_dim, output_dim, kernel_size=5, stride=2, padding=0, rate=1,
                        conv_padding=padding, dilation=rate,
                        activation=activation)
 
+class ResizeConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation, bias, stride=1, padding=0, scale_factor=2 ):
+        super(ResizeConv2d, self).__init__()
+        self.scale_factor = scale_factor
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, bias=bias)
+
+    def forward(self, x):
+        x = F.interpolate(x, scale_factor=self.scale_factor, mode='nearest')
+        x = self.conv(x)
+        return x
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride, padding=0,
@@ -439,12 +453,13 @@ class Conv2dBlock(nn.Module):
 
         # initialize convolution
         if transpose:
-            self.conv = nn.ConvTranspose2d(input_dim, output_dim,
-                                           kernel_size, stride,
-                                           padding=conv_padding,
-                                           output_padding=conv_padding,
-                                           dilation=dilation,
-                                           bias=self.use_bias)
+            # self.conv = nn.ConvTranspose2d(input_dim, output_dim,
+            #                                kernel_size, stride,
+            #                                padding=conv_padding,
+            #                                output_padding=conv_padding,
+            #                                dilation=dilation,
+            #                                bias=self.use_bias)
+            self.conv = ResizeConv2d(input_dim, output_dim, kernel_size, dilation, self.use_bias, stride=stride, padding=conv_padding)
         else:
             self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride,
                                   padding=conv_padding, dilation=dilation,

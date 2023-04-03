@@ -24,10 +24,10 @@ os.makedirs(os.path.join(config["checkpoint_save_path"], "saved_models"), exist_
 
 ## Set random seed to allow for training to be recreated
 
-if config["seed"] is None:
-    config["seed"] = random.randint(1, 10000)
-
-seed = config["seed"]
+if "seed" in config:
+    seed = config["seed"]
+else:
+    seed = random.randint(1, 10000)
 
 print(f"Random seed used: {seed}")
 random.seed(seed)
