@@ -37,11 +37,14 @@ if cuda:
 
 # Dataloader for training
 train_loader = DataLoader(
-    Dataset(config["dataset"]),
+    Dataset(config),
     batch_size=config["batch_size"],
     shuffle=True,
     num_workers=config["n_cpu"],
 )
+
+import ipdb
+ipdb.set_trace()
 
 trainer = Trainer(config)
 #print(trainer.netG)
