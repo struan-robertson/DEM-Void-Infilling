@@ -43,9 +43,6 @@ train_loader = DataLoader(
     num_workers=config["n_cpu"],
 )
 
-import ipdb
-ipdb.set_trace()
-
 trainer = Trainer(config)
 #print(trainer.netG)
 #print(trainer.localD)
@@ -61,12 +58,15 @@ iterable_train_loader = iter(train_loader)
 
 time_count = time.time()
 
+import ipdb
+
 for epoch in range (config["epochs"]):
 
     # For correctly saving snapshots
     epoch += 1
 
     for iteration, ground_truth in enumerate(train_loader):
+
 
         # Prepare inputs
         bboxes = random_bbox(config, batch_size=ground_truth.size(0))
@@ -127,18 +127,18 @@ for epoch in range (config["epochs"]):
 
                 viz_max_out = config['viz_max_out']
 
-                if x.size(0) > viz_max_out:
-                    viz_images = torch.stack([x[:viz_max_out], inpainted_result[:viz_max_out]], dim=1)
-                else:
-                    viz_images = torch.stack([x, inpainted_result], dim=1)
+                # if x.size(0) > viz_max_out:
+                #     viz_images = torch.stack([x[:viz_max_out,0], inpainted_result[:viz_max_out,0]], dim=1)
+                # else:
+                #     viz_images = torch.stack([x[:,0], inpainted_result[:,0]], dim=1)
 
                 if x.size(0) > viz_max_out:
-                    viz_images = torch.cat((x[:viz_max_out].data, inpainted_result[:viz_max_out].data, ground_truth[:viz_max_out].data), -2)
+                    viz_dem = torch.cat((x[:viz_max_out, 0].data, inpainted_result[:viz_max_out, 0].data, ground_truth[:viz_max_out, 0].data), -2)
                 else:
-                    viz_images = torch.cat((x.data, inpainted_result.data, ground_truth.data), -2)
+                    viz_dem = torch.cat((x[:,0].data, inpainted_result[:,0].data, ground_truth[:,0].data), -2)
 
-                viz_images = apply_colormap(viz_images)
+                viz_dem = apply_colormap(viz_dem, 'terrain')
 
-                grid = make_grid(viz_images)
+                dem_grid = make_grid(viz_dem)
 
-                plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{epoch}.png'), grid)
+                plt.imsave(os.path.join(config["checkpoint_save_path"], f'images/{epoch}_dem.png'), dem_grid)

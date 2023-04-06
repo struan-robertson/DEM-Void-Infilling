@@ -19,6 +19,13 @@ def normalize(arr):
     normalized = 2*normalized - 1
     return normalized
 
+# def partial_norm(arr):
+#     normalized = (arr - arr.min()) / (arr.max() - arr.min())
+
+#     normalized = normalized - 1
+
+#     return normalized
+
 class Dataset(data.Dataset):
     def __init__(self, config):
 
@@ -31,6 +38,7 @@ class Dataset(data.Dataset):
 
     def tile_thread(self, dataset, num):
         vectorized_normalise = np.vectorize(normalize, signature='(n,m)->(n,m)')
+        # vectorized_partial_norm = np.vectorize(partial_norm, signature='(n,m)->(n,m)')
 
         pds = gdal.Open(dataset)
         geot = pds.GetGeoTransform()
@@ -62,28 +70,28 @@ class Dataset(data.Dataset):
         tiled_array = vectorized_normalise(tiled_array)
 
         # Slope
-        cellsize = geot[1]
-        px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
-        slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
-        slope = vectorized_normalise(slope)
+        # cellsize = geot[1]
+        # px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
+        # slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
+        # slope = vectorized_partial_norm(slope)
 
         # RDLS
-        windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2)) # type: ignore
-        rdls = np.ptp(windowed, axis=(3,4))
-        rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
-        rdls = vectorized_normalise(rdls)
+        # windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2)) # type: ignore
+        # rdls = np.ptp(windowed, axis=(3,4))
+        # rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
+        # rdls = vectorized_normalise(rdls)
 
-        all = np.stack((tiled_array, slope, rdls), axis=3)
+        # all = np.stack((tiled_array, slope), axis=3)
 
-        # H,W,C to C,H,W
-        all = np.transpose(all, (0,3,1,2))
+        tiled_array = np.expand_dims(tiled_array, axis=3)
+        tiled_array = np.transpose(tiled_array, (0, 3, 1, 2))
 
         file = os.path.basename(dataset)
 
         # V much all over the place since different DEMS take v different amounts of time to process, however gives a rough idea of where the proceesing is at
         print(f'loaded DEM {file}, number {num}')
 
-        return all
+        return tiled_array
 
     def tile(self):
 

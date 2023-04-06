@@ -15,7 +15,7 @@ mosaic_unit_size = 12
 
 # Training Parameters
 expname = "benchmark"
-cuda = false
+cuda = true
 n_cpu = 16
 lr = 0.0001
 beta1 = 0.5
@@ -25,7 +25,7 @@ epochs = 1000
 print_iter = 1
 viz_iter = 1
 viz_max_out = 12
-snapshot_save_iter = 50
+snapshot_save_iter = 10
 
 # Loss weight
 coarse_l1_alpha = 1.2

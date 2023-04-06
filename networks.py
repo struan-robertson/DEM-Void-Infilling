@@ -23,6 +23,7 @@ class Generator(nn.Module):
         # print(self.fine_generator)
 
     def forward(self, x, mask):
+
         x_stage1 = self.coarse_generator(x, mask)
         x_stage2 = self.fine_generator(x, x_stage1, mask)
         return x_stage1, x_stage2
@@ -48,13 +49,14 @@ class CoarseGenerator(nn.Module):
         self.conv11 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
         self.conv12 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
 
-        self.conv13 = gen_conv(cnum*4, cnum*2, 3, 1, 1)
+        self.conv13 = gen_conv(cnum*4, cnum*2, 3, 1, 1,)
         self.conv14 = gen_conv(cnum*2, cnum*2, 3, 1, 1)
-        self.conv15 = gen_conv(cnum*2, cnum, 3, 1, 1)
-        self.conv16 = gen_conv(cnum, cnum//2, 3, 1, 1)
-        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none')
+        self.conv15 = gen_conv(cnum*2, cnum, 3, 1, 1, )
+        self.conv16 = gen_conv(cnum, cnum//2, 3, 1, 1, )
+        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none', )
 
     def forward(self, x, mask):
+
         # For indicating the boundaries of images
         ones = torch.ones(x.size(0), 1, x.size(2), x.size(3))
         if self.use_cuda:
@@ -130,7 +132,8 @@ class FineGenerator(nn.Module):
         self.allconv14 = gen_conv(cnum*2, cnum*2, 3, 1, 1)
         self.allconv15 = gen_conv(cnum*2, cnum, 3, 1, 1)
         self.allconv16 = gen_conv(cnum, cnum//2, 3, 1, 1)
-        self.allconv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none')
+        self.allconv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
+        self.allconv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='none')
 
     def forward(self, xin, x_stage1, mask):
         x1_inpaint = x_stage1 * mask + xin * (1. - mask)
@@ -174,6 +177,8 @@ class FineGenerator(nn.Module):
         x = self.allconv15(x)
         x = self.allconv16(x)
         x = self.allconv17(x)
+        x = self.allconv18(x)
+
         x_stage2 = torch.clamp(x, -1., 1.)
 
         return x_stage2
@@ -328,7 +333,9 @@ class LocalDis(nn.Module):
 
     def forward(self, x):
         x = self.dis_conv_module(x)
+
         x = x.view(x.size()[0], -1)
+
         x = self.linear(x)
 
         return x
@@ -357,13 +364,16 @@ class DisConvModule(nn.Module):
         super(DisConvModule, self).__init__()
         self.use_cuda = use_cuda
 
-        self.conv1 = dis_conv(input_dim, cnum, 5, 2, 2)
+        self.conv1 = dis_conv(input_dim, cnum, 3, 1, 1)
         self.conv2 = dis_conv(cnum, cnum*2, 5, 2, 2)
         self.conv3 = dis_conv(cnum*2, cnum*4, 5, 2, 2)
         self.conv4 = dis_conv(cnum*4, cnum*4, 5, 2, 2)
 
     def forward(self, x):
+
         x = self.conv1(x)
+        x = F.interpolate(x, scale_factor=0.5, mode='nearest')
+
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
@@ -378,27 +388,16 @@ def gen_conv(input_dim, output_dim, kernel_size=3, stride=1, padding=0, rate=1,
                        activation=activation)
 
 
-def dis_conv(input_dim, output_dim, kernel_size=5, stride=2, padding=0, rate=1,
-             activation='lrelu'):
+def dis_conv(input_dim, output_dim, kernel_size=5, stride=1, padding=0, rate=1,
+            activation='lrelu'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
                        activation=activation)
 
-class ResizeConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, dilation, bias, stride=1, padding=0, scale_factor=2 ):
-        super(ResizeConv2d, self).__init__()
-        self.scale_factor = scale_factor
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, dilation=dilation, bias=bias)
-
-    def forward(self, x):
-        x = F.interpolate(x, scale_factor=self.scale_factor, mode='nearest')
-        x = self.conv(x)
-        return x
-
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride, padding=0,
                  conv_padding=0, dilation=1, weight_norm='none', norm='none',
-                 activation='relu', pad_type='zero', transpose=False):
+                 activation='relu', pad_type='zero'):
         super(Conv2dBlock, self).__init__()
         self.use_bias = True
         # initialize padding
@@ -451,17 +450,7 @@ class Conv2dBlock(nn.Module):
         else:
             assert 0, "Unsupported activation: {}".format(activation)
 
-        # initialize convolution
-        if transpose:
-            # self.conv = nn.ConvTranspose2d(input_dim, output_dim,
-            #                                kernel_size, stride,
-            #                                padding=conv_padding,
-            #                                output_padding=conv_padding,
-            #                                dilation=dilation,
-            #                                bias=self.use_bias)
-            self.conv = ResizeConv2d(input_dim, output_dim, kernel_size, dilation, self.use_bias, stride=stride, padding=conv_padding)
-        else:
-            self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride,
+        self.conv = nn.Conv2d(input_dim, output_dim, kernel_size, stride,
                                   padding=conv_padding, dilation=dilation,
                                   bias=self.use_bias)
 

@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.cm
 
 import torch.nn.functional as F
 
@@ -215,8 +215,9 @@ def get_model_list(dirname, key, iteration=0):
     return last_model_name
 
 
-def apply_colormap(tensor):
-    cm = plt.cm.terrain
+def apply_colormap(tensor, colormap):
+
+    cm = matplotlib.cm.get_cmap(colormap)
 
     tensor = tensor.cpu().detach().numpy()
 
