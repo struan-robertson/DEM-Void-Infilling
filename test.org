@@ -225,16 +225,16 @@ print(len(tiled))
 : 225
 
 #+begin_src jupyter-python
-tile_n = 10
+tile_n = 220
 
 dem = tiled[tile_n]
 dem_min, dem_max = min_max[tile_n]
 
-display(dem)
+display(denormalize(dem, dem_max, dem_min))
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/263025e0873ab49f5477513f3a78cfb40c5d0f3c.png]]
+[[file:./.ob-jupyter/d3db4c4ec24958360ec07789ce7bac5b0857fe4b.png]]
 
 ** Infill
 #+begin_src jupyter-python
@@ -247,7 +247,7 @@ display(dem)
 bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
 x, mask = mask_image(dem, bboxes, config, train=False)
 
-checkpoint_path = "out/saved_models/gen_00000040.pt"
+checkpoint_path = "out/saved_models/gen_00000030.pt"
 
 inpainted_result = None
 x2 = None
@@ -268,7 +268,7 @@ display(inpainted_result)
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/86382cbc730b7d9bbeeedd90f2ab940110971dfc.png]]
+[[file:./.ob-jupyter/678764ce89fd3eb23c53362b1be4fddeae2f9945.png]]
 ** Poisson Blending
 #+begin_src jupyter-python
 mask = mask.cpu().detach().numpy()
@@ -306,7 +306,7 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/96761fbe589b2a85dd9012b0531a54a65cf01aff.png]]
+[[file:./.ob-jupyter/45bf41ba0128fd6f9c49b0b9d9addd3b75975d7b.png]]
 
 
 

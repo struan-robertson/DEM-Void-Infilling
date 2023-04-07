@@ -7,7 +7,6 @@ from torch.nn.utils import weight_norm as weight_norm_fn
 from tools import extract_image_patches, \
     reduce_mean, reduce_sum, same_padding
 
-
 class Generator(nn.Module):
     def __init__(self, config, use_cuda):
         super(Generator, self).__init__()
@@ -25,6 +24,7 @@ class Generator(nn.Module):
     def forward(self, x, mask):
 
         x_stage1 = self.coarse_generator(x, mask)
+
         x_stage2 = self.fine_generator(x, x_stage1, mask)
         return x_stage1, x_stage2
 
@@ -53,7 +53,7 @@ class CoarseGenerator(nn.Module):
         self.conv14 = gen_conv(cnum*2, cnum*2, 3, 1, 1)
         self.conv15 = gen_conv(cnum*2, cnum, 3, 1, 1, )
         self.conv16 = gen_conv(cnum, cnum//2, 3, 1, 1, )
-        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none', )
+        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none')
 
     def forward(self, x, mask):
 
@@ -91,14 +91,13 @@ class CoarseGenerator(nn.Module):
 
         return x_stage1
 
-
 class FineGenerator(nn.Module):
     def __init__(self, input_dim, cnum, use_cuda=True):
         super(FineGenerator, self).__init__()
         self.use_cuda = use_cuda
 
         # 3 x 256 x 256
-        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
+        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2,)
         self.conv2_downsample = gen_conv(cnum, cnum, 3, 2, 1)
         # cnum*2 x 128 x 128
         self.conv3 = gen_conv(cnum, cnum*2, 3, 1, 1)
@@ -133,7 +132,7 @@ class FineGenerator(nn.Module):
         self.allconv15 = gen_conv(cnum*2, cnum, 3, 1, 1)
         self.allconv16 = gen_conv(cnum, cnum//2, 3, 1, 1)
         self.allconv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
-        self.allconv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='none')
+        self.allconv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='tanh')
 
     def forward(self, xin, x_stage1, mask):
         x1_inpaint = x_stage1 * mask + xin * (1. - mask)
@@ -179,9 +178,9 @@ class FineGenerator(nn.Module):
         x = self.allconv17(x)
         x = self.allconv18(x)
 
-        x_stage2 = torch.clamp(x, -1., 1.)
+        # x_stage2 = torch.clamp(x, -1., 1.)
 
-        return x_stage2
+        return x
 
 
 class ContextualAttention(nn.Module):
@@ -329,6 +328,7 @@ class LocalDis(nn.Module):
         self.use_cuda = use_cuda
 
         self.dis_conv_module = DisConvModule(self.input_dim, self.cnum)
+
         self.linear = nn.Linear(self.cnum*4*8*8, 1)
 
     def forward(self, x):
@@ -364,16 +364,14 @@ class DisConvModule(nn.Module):
         super(DisConvModule, self).__init__()
         self.use_cuda = use_cuda
 
-        self.conv1 = dis_conv(input_dim, cnum, 3, 1, 1)
-        self.conv2 = dis_conv(cnum, cnum*2, 5, 2, 2)
-        self.conv3 = dis_conv(cnum*2, cnum*4, 5, 2, 2)
-        self.conv4 = dis_conv(cnum*4, cnum*4, 5, 2, 2)
+        self.conv1 = dis_conv(input_dim, cnum, 4, 2, 1, norm='none')
+        self.conv2 = dis_conv(cnum, cnum*2, 4, 2, 1)
+        self.conv3 = dis_conv(cnum*2, cnum*4, 4, 2, 1)
+        self.conv4 = dis_conv(cnum*4, cnum*4, 4, 2, 1)
 
     def forward(self, x):
 
         x = self.conv1(x)
-        x = F.interpolate(x, scale_factor=0.5, mode='nearest')
-
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
@@ -388,11 +386,11 @@ def gen_conv(input_dim, output_dim, kernel_size=3, stride=1, padding=0, rate=1,
                        activation=activation)
 
 
-def dis_conv(input_dim, output_dim, kernel_size=5, stride=1, padding=0, rate=1,
-            activation='lrelu'):
+def dis_conv(input_dim, output_dim, kernel_size=4, stride=1, padding=0, rate=1,
+             activation='lrelu', norm='bn'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
-                       activation=activation)
+                       activation=activation, norm=norm)
 
 class Conv2dBlock(nn.Module):
     def __init__(self, input_dim, output_dim, kernel_size, stride, padding=0,
