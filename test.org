@@ -236,25 +236,6 @@ display(denormalize(dem, dem_max, dem_min))
 #+RESULTS:
 [[file:./.ob-jupyter/6db1d88d57fd1dce6644a5a78f11eb816bcc41c5.png]]
 
-#+begin_src jupyter-python
-# Define the dimensions of the array
-
-for i in range(2000):
-    bboxes = random_bbox(config, batch_size=1)
-    x, mask = mask_image(dem, bboxes, config, train=True)
-
-mask = mask.cpu().detach().numpy()
-mask = np.squeeze(mask)
-
-plt.imshow(mask, cmap='gray')
-#+end_src
-
-#+RESULTS:
-:RESULTS:
-: <matplotlib.image.AxesImage at 0x7fe54598a7a0>
-[[file:./.ob-jupyter/ce703def3c4d07aadd4593759e9b02b380b3b3a5.png]]
-:END:
-
 ** Infill
 #+begin_src jupyter-python
 
