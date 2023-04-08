@@ -1,4 +1,4 @@
-dataset = "../Data_old"
+dataset = "../data_test"
 checkpoint_save_path = "out"
 resume = 0
 batch_size = 12

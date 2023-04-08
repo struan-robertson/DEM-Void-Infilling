@@ -58,12 +58,12 @@ iterable_train_loader = iter(train_loader)
 
 time_count = time.time()
 
-import ipdb
-
 for epoch in range (config["epochs"]):
 
     # For correctly saving snapshots
     epoch += 1
+
+    # TODO maybe use iteration instead of epoch for saving snapshots and visualisations, as with v large dataset takes a long time for each epoch
 
     for iteration, ground_truth in enumerate(train_loader):
 
@@ -101,7 +101,6 @@ for epoch in range (config["epochs"]):
 
         # TODO Epoch size doesnt change and can just be printed at the start
         # TODO Print start and end time
-        # FIXME Time per epoch is completely broken
 
         log_losses = ['l1', 'ae', 'wgan_g', 'wgan_d', 'wgan_gp', 'g', 'd']
         if epoch % config['print_iter'] == 0 and iteration == 0:

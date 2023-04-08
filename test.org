@@ -35,8 +35,8 @@ with open('config.toml', 'r') as file:
 
 # Test specific settings
 config['cuda'] = False
-config['dataset_name'] = "../test_n/NAC_DTM_CHAPLYGIN.TIF"
-config['seed'] = 6747
+config['dataset_name'] = "../datac/NAC_DTM_APENNINE01.TIF"
+config['seed'] = 1433
 #+end_src
 
 #+RESULTS:
@@ -181,7 +181,7 @@ tiled.shape
 #+end_src
 
 #+RESULTS:
-: torch.Size([225, 1, 256, 256])
+: torch.Size([484, 1, 256, 256])
 * Infill
 
 Not the most efficient way of doing things but since individual DEM files are (probably) much larger than the tiles the network is trained on.
@@ -222,10 +222,10 @@ print(len(tiled))
 #+end_src
 
 #+RESULTS:
-: 225
+: 484
 
 #+begin_src jupyter-python
-tile_n = 220
+tile_n = 5
 
 dem = tiled[tile_n]
 dem_min, dem_max = min_max[tile_n]
@@ -234,7 +234,26 @@ display(denormalize(dem, dem_max, dem_min))
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/d3db4c4ec24958360ec07789ce7bac5b0857fe4b.png]]
+[[file:./.ob-jupyter/6db1d88d57fd1dce6644a5a78f11eb816bcc41c5.png]]
+
+#+begin_src jupyter-python
+# Define the dimensions of the array
+
+for i in range(2000):
+    bboxes = random_bbox(config, batch_size=1)
+    x, mask = mask_image(dem, bboxes, config, train=True)
+
+mask = mask.cpu().detach().numpy()
+mask = np.squeeze(mask)
+
+plt.imshow(mask, cmap='gray')
+#+end_src
+
+#+RESULTS:
+:RESULTS:
+: <matplotlib.image.AxesImage at 0x7fe54598a7a0>
+[[file:./.ob-jupyter/ce703def3c4d07aadd4593759e9b02b380b3b3a5.png]]
+:END:
 
 ** Infill
 #+begin_src jupyter-python
@@ -247,7 +266,7 @@ display(denormalize(dem, dem_max, dem_min))
 bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
 x, mask = mask_image(dem, bboxes, config, train=False)
 
-checkpoint_path = "out/saved_models/gen_00000030.pt"
+checkpoint_path = "out/saved_models/gen_00000070.pt"
 
 inpainted_result = None
 x2 = None
@@ -268,7 +287,7 @@ display(inpainted_result)
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/678764ce89fd3eb23c53362b1be4fddeae2f9945.png]]
+[[file:./.ob-jupyter/d6c713c8ff6195bc72dc177fd94ce1289b18769c.png]]
 ** Poisson Blending
 #+begin_src jupyter-python
 mask = mask.cpu().detach().numpy()
@@ -281,7 +300,11 @@ mask = np.squeeze(mask)
 infill = partial_dn(x2)
 gt = partial_dn(dem)
 
-blended = blend_images(infill, gt, mask)
+infill = np.pad(infill, ((1,1), (0,0)), mode='constant', constant_values=0)
+gt = np.pad(gt, ((1,1), (0,0)), mode='constant', constant_values=0)
+arr = np.pad(arr, ((1,1), (0,0)), mode='constant', constant_values=0)
+
+blended = blend_images(infill, gt, arr)
 
 blended = (blended * (dem_max - dem_min)) + dem_min
 
@@ -306,7 +329,34 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/45bf41ba0128fd6f9c49b0b9d9addd3b75975d7b.png]]
+:RESULTS:
+# [goto error]
+#+begin_example
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+Cell In[210], line 8
+      5 gt = np.pad(gt, ((1,1), (0,0)), mode='constant', constant_values=0)
+      6 arr = np.pad(arr, ((1,1), (0,0)), mode='constant', constant_values=0)
+----> 8 blended = blend_images(infill, gt, arr)
+     10 blended = (blended * (dem_max - dem_min)) + dem_min
+     12 ground_truth = denormalize(dem, dem_max, dem_min)
+
+File ~/Development/Inpaint/Final Network/Network/blend.py:67, in blend_images(source, target, mask)
+     63 h, w = source.shape[0], source.shape[1]
+     65 data, cols, rows = generate_matrix_A(mask)
+---> 67 b = generate_matrix_b(source, target, mask)
+     69 blended = solve_sparse_linear_equation(data, cols, rows, b, h, w)
+     71 return blended
+
+File ~/Development/Inpaint/Final Network/Network/blend.py:17, in generate_matrix_b(source, target, mask)
+     15 target_flatten = target.flatten('C')
+     16 mask_flatten = mask.flatten('C')
+---> 17 b = (mask_flatten) * source_laplacian_flatten + (1 - mask_flatten) * target_flatten
+     18 return b
+
+ValueError: operands could not be broadcast together with shapes (67072,) (66048,)
+#+end_example
+:END:
 
 
 
