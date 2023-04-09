@@ -13,11 +13,13 @@ from numpy.lib.stride_tricks import sliding_window_view
 
 # Dataloader class
 
+
 # outside the class to make life simpler in terms of function signitures
 def normalize(arr):
     normalized = (arr - arr.min()) / (arr.max() - arr.min())
-    normalized = 2*normalized - 1
+    normalized = 2 * normalized - 1
     return normalized
+
 
 # def partial_norm(arr):
 #     normalized = (arr - arr.min()) / (arr.max() - arr.min())
@@ -26,9 +28,9 @@ def normalize(arr):
 
 #     return normalized
 
+
 class Dataset(data.Dataset):
     def __init__(self, config):
-
         image_shape = config["image_shape"]
         self.kernel_size = (image_shape[0], image_shape[1])
         self.root = config["dataset"]
@@ -36,83 +38,72 @@ class Dataset(data.Dataset):
 
         self.tiles = self.tile()
 
-    def tile_thread(self, dataset, num):
-        vectorized_normalise = np.vectorize(normalize, signature='(n,m)->(n,m)')
-        # vectorized_partial_norm = np.vectorize(partial_norm, signature='(n,m)->(n,m)')
-
-        pds = gdal.Open(dataset)
-        geot = pds.GetGeoTransform()
-
-        image = np.array(pds.ReadAsArray())
-
-        img_height, img_width = image.shape
-        tile_height, tile_width = self.kernel_size
-
-        # If cant divide perfectly
-        if (img_height % tile_height != 0 or img_width % tile_width != 0):
-            new_height = img_height - (img_height % tile_height)
-            new_width = img_width - (img_width % tile_width)
-
-            image = image[:new_height, :new_width]
-
-        tiles_high = img_height // tile_height
-        tiles_wide = img_width // tile_width
-
-        tiled_array = image.reshape(tiles_high,
-                                    tile_height,
-                                    tiles_wide,
-                                    tile_width )
-
-        tiled_array = tiled_array.swapaxes(1, 2)
-
-        tiled_array = tiled_array.reshape(tiles_high * tiles_wide, tile_height, tile_width)
-
-        tiled_array = vectorized_normalise(tiled_array)
-
-        # Slope
-        # cellsize = geot[1]
-        # px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
-        # slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
-        # slope = vectorized_partial_norm(slope)
-
-        # RDLS
-        # windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2)) # type: ignore
-        # rdls = np.ptp(windowed, axis=(3,4))
-        # rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
-        # rdls = vectorized_normalise(rdls)
-
-        # all = np.stack((tiled_array, slope), axis=3)
-
-        tiled_array = np.expand_dims(tiled_array, axis=3)
-        tiled_array = np.transpose(tiled_array, (0, 3, 1, 2))
-
-        file = os.path.basename(dataset)
-
-        # V much all over the place since different DEMS take v different amounts of time to process, however gives a rough idea of where the proceesing is at
-        print(f'loaded DEM {file}, number {num}')
-
-        return tiled_array
-
     def tile(self):
-
         start_time = time.time()
+        vectorized_normalise = np.vectorize(normalize, signature="(n,m)->(n,m)")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.n_cpu) as executor:
+        # Slightly strange way to do it but used for counting files first
+        files = os.listdir(self.root)
+        n_files = len(files)
 
-            futures = []
+        dems = []
 
-            i = 1
+        for i, file in enumerate(files):
+            path = os.path.join(self.root, file)
 
-            # Slightly strange way to do it but used for counting files first
-            files = os.listdir(self.root)
-            n_files = len(files)
+            pds = gdal.Open(path)
+            # geot = pds.GetGeoTransform()
 
-            for file in files:
-                path = os.path.join(self.root, file)
-                futures.append(executor.submit(self.tile_thread, path, f'{i}/{n_files}'))
-                i += 1
+            image = np.array(pds.ReadAsArray())
 
-            dems = [future.result() for future in concurrent.futures.as_completed(futures)]
+            img_height, img_width = image.shape
+            tile_height, tile_width = self.kernel_size
+
+            # If cant divide perfectly
+            if img_height % tile_height != 0 or img_width % tile_width != 0:
+                new_height = img_height - (img_height % tile_height)
+                new_width = img_width - (img_width % tile_width)
+
+                image = image[:new_height, :new_width]
+
+            tiles_high = img_height // tile_height
+            tiles_wide = img_width // tile_width
+
+            tiled_array = image.reshape(tiles_high, tile_height, tiles_wide, tile_width)
+
+            tiled_array = tiled_array.swapaxes(1, 2)
+
+            tiled_array = tiled_array.reshape(
+                tiles_high * tiles_wide, tile_height, tile_width
+            )
+
+            tiled_array = vectorized_normalise(tiled_array)
+
+            # Slope
+            # cellsize = geot[1]
+            # px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
+            # slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
+            # slope = vectorized_partial_norm(slope)
+
+            # RDLS
+            # windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2)) # type: ignore
+            # rdls = np.ptp(windowed, axis=(3,4))
+            # rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
+            # rdls = vectorized_normalise(rdls)
+
+            # all = np.stack((tiled_array, slope), axis=3)
+
+            tiled_array = np.expand_dims(tiled_array, axis=3)
+            tiled_array = np.transpose(tiled_array, (0, 3, 1, 2))
+
+            file = os.path.basename(path)
+
+            # V much all over the place since different DEMS take v different amounts of time to process, however gives a rough idea of where the proceesing is at
+            print(f"loaded DEM {file}: {i}/{n_files}")
+
+            i += 1
+
+            dems.append(tiled_array)
 
         full = np.concatenate((*dems,))
 
@@ -122,12 +113,11 @@ class Dataset(data.Dataset):
 
         end_time = int(time.time() - start_time)
 
-        print(f'Loaded all DEMs in {end_time} seconds')
+        print(f"Loaded all DEMs in {end_time} seconds")
 
         return full
 
     def __getitem__(self, index):
-
         img = self.tiles[index % self.tiles.shape[0]]
 
         return img
