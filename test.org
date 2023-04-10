@@ -212,7 +212,6 @@ def display(image):
     # plt.imshow(image[:,:,1], cmap='viridis')
     # plt.title("Slope")
     # plt.colorbar()
-    plt.show()
 #+end_src
 
 #+RESULTS:
@@ -225,7 +224,7 @@ print(len(tiled))
 : 484
 
 #+begin_src jupyter-python
-tile_n = 5
+tile_n = 100
 
 dem = tiled[tile_n]
 dem_min, dem_max = min_max[tile_n]
@@ -234,7 +233,7 @@ display(denormalize(dem, dem_max, dem_min))
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/6db1d88d57fd1dce6644a5a78f11eb816bcc41c5.png]]
+[[file:./.ob-jupyter/412d3a37a27f80042580bb1aa3df1be1e9d97a57.png]]
 
 ** Infill
 #+begin_src jupyter-python
@@ -243,11 +242,12 @@ display(denormalize(dem, dem_max, dem_min))
 
 #### Infill void
 
-# Remember (start_x, start_y, size_x, size_y)
-bboxes = torch.tensor([(64, 64, 128, 128)], dtype=torch.int64)
+# Different from normal bbox
+# (y1, x1, y2, x2)
+bboxes = torch.tensor([(0, 64, 256, 192)], dtype=torch.int64)
 x, mask = mask_image(dem, bboxes, config, train=False)
 
-checkpoint_path = "out/saved_models/gen_00000070.pt"
+checkpoint_path = "../out_backup/saved_models/gen_00000152.pt"
 
 inpainted_result = None
 x2 = None
@@ -263,12 +263,21 @@ with torch.no_grad():
 # inpainted_result_dn = denormalize(inpainted_result, img_max, img_min)
 # ground_truth_dn = denormalize(ground_truth, img_max, img_min)
 
-display(inpainted_result)
 
+plt.figure(figsize=(15,15))
+plt.subplot(1,2,1)
+display(inpainted_result)
+plt.subplot(1,2,2)
+plt.imshow(np.squeeze(mask))
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/d6c713c8ff6195bc72dc177fd94ce1289b18769c.png]]
+:RESULTS:
+[[file:./.ob-jupyter/e9e89bfb32b944376d622e80bb78184c4999f8df.png]]
+: <matplotlib.image.AxesImage at 0x7f66b5b33070>
+[[file:./.ob-jupyter/9ac774bdac94730ea415e02aa636740c51c80ad6.png]]
+:END:
+
 ** Poisson Blending
 #+begin_src jupyter-python
 mask = mask.cpu().detach().numpy()
@@ -283,9 +292,9 @@ gt = partial_dn(dem)
 
 infill = np.pad(infill, ((1,1), (0,0)), mode='constant', constant_values=0)
 gt = np.pad(gt, ((1,1), (0,0)), mode='constant', constant_values=0)
-arr = np.pad(arr, ((1,1), (0,0)), mode='constant', constant_values=0)
+mask = np.pad(mask, ((1,1), (0,0)), mode='constant', constant_values=0)
 
-blended = blend_images(infill, gt, arr)
+blended = blend_images(infill, gt, mask)
 
 blended = (blended * (dem_max - dem_min)) + dem_min
 
@@ -310,34 +319,7 @@ plt.show()
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-# [goto error]
-#+begin_example
----------------------------------------------------------------------------
-ValueError                                Traceback (most recent call last)
-Cell In[210], line 8
-      5 gt = np.pad(gt, ((1,1), (0,0)), mode='constant', constant_values=0)
-      6 arr = np.pad(arr, ((1,1), (0,0)), mode='constant', constant_values=0)
-----> 8 blended = blend_images(infill, gt, arr)
-     10 blended = (blended * (dem_max - dem_min)) + dem_min
-     12 ground_truth = denormalize(dem, dem_max, dem_min)
-
-File ~/Development/Inpaint/Final Network/Network/blend.py:67, in blend_images(source, target, mask)
-     63 h, w = source.shape[0], source.shape[1]
-     65 data, cols, rows = generate_matrix_A(mask)
----> 67 b = generate_matrix_b(source, target, mask)
-     69 blended = solve_sparse_linear_equation(data, cols, rows, b, h, w)
-     71 return blended
-
-File ~/Development/Inpaint/Final Network/Network/blend.py:17, in generate_matrix_b(source, target, mask)
-     15 target_flatten = target.flatten('C')
-     16 mask_flatten = mask.flatten('C')
----> 17 b = (mask_flatten) * source_laplacian_flatten + (1 - mask_flatten) * target_flatten
-     18 return b
-
-ValueError: operands could not be broadcast together with shapes (67072,) (66048,)
-#+end_example
-:END:
+[[file:./.ob-jupyter/0015e6b2e6982ed1159b568573ca2ceaf8cba531.png]]
 
 
 

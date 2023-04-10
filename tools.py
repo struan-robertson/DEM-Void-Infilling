@@ -148,9 +148,7 @@ def mask_image(x, bboxes, config, train=True):
     else:
         mask = torch.zeros((1, 1, height, width), dtype=torch.float32)
         bbox = bboxes[0]
-        mask[
-            0, :, bbox[0] : (bbox[0] + bbox[2] + 1), bbox[1] : (bbox[1] + bbox[3] + 1)
-        ] = 1
+        mask[0, 0, bbox[0] : bbox[2], bbox[1] : bbox[3]] = 1.0
 
     if x.is_cuda:
         mask = mask.cuda()
