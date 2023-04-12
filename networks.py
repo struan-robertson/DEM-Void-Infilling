@@ -53,7 +53,8 @@ class CoarseGenerator(nn.Module):
         self.conv14 = gen_conv(cnum*2, cnum*2, 3, 1, 1)
         self.conv15 = gen_conv(cnum*2, cnum, 3, 1, 1, )
         self.conv16 = gen_conv(cnum, cnum//2, 3, 1, 1, )
-        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1, activation='none')
+        self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
+        self.conv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='tanh')
 
     def forward(self, x, mask):
 
@@ -86,10 +87,11 @@ class CoarseGenerator(nn.Module):
         x = self.conv15(x)
         x = self.conv16(x)
         x = self.conv17(x)
+        x = self.conv18(x)
         # 3 x 256 x 256
-        x_stage1 = torch.clamp(x, -1., 1.)
+        # x_stage1 = torch.clamp(x, -1., 1.)
 
-        return x_stage1
+        return x
 
 class FineGenerator(nn.Module):
     def __init__(self, input_dim, cnum, use_cuda=True):
@@ -132,7 +134,7 @@ class FineGenerator(nn.Module):
         self.allconv15 = gen_conv(cnum*2, cnum, 3, 1, 1)
         self.allconv16 = gen_conv(cnum, cnum//2, 3, 1, 1)
         self.allconv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
-        self.allconv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='tanh')
+        self.allconv18 = gen_conv(input_dim, input_dim, 7, 1, 3, activation='tanh')
 
     def forward(self, xin, x_stage1, mask):
         x1_inpaint = x_stage1 * mask + xin * (1. - mask)

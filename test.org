@@ -35,7 +35,7 @@ with open('config.toml', 'r') as file:
 
 # Test specific settings
 config['cuda'] = False
-config['dataset_name'] = "../datac/NAC_DTM_APENNINE01.TIF"
+config['dataset_name'] = "../datac/NAC_DTM_WIENERF.TIF"
 config['seed'] = 1433
 #+end_src
 
@@ -46,6 +46,7 @@ config['seed'] = 1433
 #+begin_src jupyter-python
 def normalise(arr):
     normalized = (arr - arr.min()) / (arr.max() - arr.min())
+
 
     normalized = 2*normalized - 1
 
@@ -102,7 +103,7 @@ def tile(dataset, kernel_size):
         min_max.append((arr.min(), arr.max()))
 
     vectorized_normalise = np.vectorize(normalise, signature='(n,m)->(n,m)')
-    vectorized_partial_norm = np.vectorize(partial_norm, signature='(n,m)->(n,m)')
+    # vectorized_partial_norm = np.vectorize(partial_norm, signature='(n,m)->(n,m)')
 
     tiled_array = vectorized_normalise(tiled_array)
 
@@ -110,7 +111,7 @@ def tile(dataset, kernel_size):
     cellsize = geo_transform[1]
     px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
     slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
-    slope = vectorized_partial_norm(slope)
+    slope = vectorized_normalise(slope)
 
     # # RDLS
     # windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2))
@@ -118,15 +119,17 @@ def tile(dataset, kernel_size):
     # rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
     # rdls = vectorized_normalise(rdls)
 
-    # all = np.stack((tiled_array, slope), axis=3)
+    all = np.stack((tiled_array, slope), axis=3)
 
-    tiled_array = np.expand_dims(tiled_array, axis=3)
-    tiled_array = np.transpose(tiled_array, (0, 3, 1, 2))
+    # tiled_array = np.expand_dims(tiled_array, axis=3)
+    all = np.transpose(all, (0, 3, 1, 2))
 
     # H,W,C to C,H,W
-    return torch.from_numpy(tiled_array), min_max, crs, geo_transform
+    return torch.from_numpy(all), min_max, crs, geo_transform
 
 #+end_src
+
+
 
 #+RESULTS:
 
@@ -134,10 +137,12 @@ def tile(dataset, kernel_size):
 #+begin_src jupyter-python
 
 # Return data from -1<->1 normalisation to original state
+
 def denormalize(tensor, max, min):
     arr = tensor.cpu().detach().numpy()
 
-    arr = arr.squeeze()
+    arr = np.squeeze(arr)
+    arr = np.transpose(arr, (1,2,0))
 
     arr = (arr * 0.5) + 0.5
     arr = (arr * (max - min)) + min
@@ -150,7 +155,8 @@ def partial_dn(tensor):
 
     arr = tensor.cpu().detach().numpy()
 
-    arr = arr.squeeze()
+    arr = np.squeeze(arr)
+    arr = np.transpose(arr, (1,2,0))
 
     arr = (arr * 0.5) + 0.5
 
@@ -181,7 +187,7 @@ tiled.shape
 #+end_src
 
 #+RESULTS:
-: torch.Size([484, 1, 256, 256])
+: torch.Size([625, 2, 256, 256])
 * Infill
 
 Not the most efficient way of doing things but since individual DEM files are (probably) much larger than the tiles the network is trained on.
@@ -201,17 +207,16 @@ def display(image):
     if isinstance(image, torch.Tensor):
         image = image.cpu().detach().numpy()
         image = image.squeeze()
-        # image = np.transpose(image, (1,2,0))
+        image = np.transpose(image, (1,2,0))
 
-    # plt.figure(figsize=(15,4))
-    # plt.subplot(1,1,1)
-    plt.imshow(image, cmap='terrain')
+    plt.figure(figsize=(12,4))
+    plt.subplot(1,2,1)
+    plt.imshow(image[:,:,0], cmap='terrain')
     plt.title("DEM")
     plt.colorbar()
-    # plt.subplot(1,2,2)
-    # plt.imshow(image[:,:,1], cmap='viridis')
-    # plt.title("Slope")
-    # plt.colorbar()
+    plt.subplot(1,2,2)
+    plt.imshow(image[:,:,1], cmap='viridis')
+    plt.title("Slope")
 #+end_src
 
 #+RESULTS:
@@ -221,19 +226,27 @@ print(len(tiled))
 #+end_src
 
 #+RESULTS:
-: 484
+: 625
 
 #+begin_src jupyter-python
-tile_n = 100
+tile_n = 2
 
 dem = tiled[tile_n]
 dem_min, dem_max = min_max[tile_n]
 
-display(denormalize(dem, dem_max, dem_min))
+tt = dem.cpu().detach().numpy()
+tt = np.transpose(tt, (1,2,0))
+
+# display(denormalize(dem, dem_max, dem_min))
+plt.imshow(tt[:,:,0], cmap='terrain')
+plt.colorbar()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/412d3a37a27f80042580bb1aa3df1be1e9d97a57.png]]
+:RESULTS:
+: <matplotlib.colorbar.Colorbar at 0x7f5b989ec0a0>
+[[file:./.ob-jupyter/b68c06c50ad31026a16049e208a2bc533478b69a.png]]
+:END:
 
 ** Infill
 #+begin_src jupyter-python
@@ -244,10 +257,12 @@ display(denormalize(dem, dem_max, dem_min))
 
 # Different from normal bbox
 # (y1, x1, y2, x2)
-bboxes = torch.tensor([(0, 64, 256, 192)], dtype=torch.int64)
+bboxes = torch.tensor([(0, 100, 256, 150)], dtype=torch.int64)
+# bboxes = torch.tensor([(64, 64, 192, 192)], dtype=torch.int64)
 x, mask = mask_image(dem, bboxes, config, train=False)
 
-checkpoint_path = "../out_backup/saved_models/gen_00000152.pt"
+# checkpoint_path = "../out_backup/saved_models/gen_00000166.pt"
+checkpoint_path = "out/saved_models/gen_00000036.pt"
 
 inpainted_result = None
 x2 = None
@@ -262,21 +277,14 @@ with torch.no_grad():
 #### De-normalize
 # inpainted_result_dn = denormalize(inpainted_result, img_max, img_min)
 # ground_truth_dn = denormalize(ground_truth, img_max, img_min)
+# inpainted_result = np.squeeze(inpainted_result)
 
-
-plt.figure(figsize=(15,15))
-plt.subplot(1,2,1)
 display(inpainted_result)
-plt.subplot(1,2,2)
-plt.imshow(np.squeeze(mask))
+
 #+end_src
 
 #+RESULTS:
-:RESULTS:
-[[file:./.ob-jupyter/e9e89bfb32b944376d622e80bb78184c4999f8df.png]]
-: <matplotlib.image.AxesImage at 0x7f66b5b33070>
-[[file:./.ob-jupyter/9ac774bdac94730ea415e02aa636740c51c80ad6.png]]
-:END:
+[[file:./.ob-jupyter/89751cbe04c154668fa086152211468233bb1419.png]]
 
 ** Poisson Blending
 #+begin_src jupyter-python
@@ -290,36 +298,64 @@ mask = np.squeeze(mask)
 infill = partial_dn(x2)
 gt = partial_dn(dem)
 
-infill = np.pad(infill, ((1,1), (0,0)), mode='constant', constant_values=0)
-gt = np.pad(gt, ((1,1), (0,0)), mode='constant', constant_values=0)
-mask = np.pad(mask, ((1,1), (0,0)), mode='constant', constant_values=0)
+infill[:,:,0].min()
+#+end_src
 
-blended = blend_images(infill, gt, mask)
+#+RESULTS:
+: 0.99999994
+
+#+begin_src jupyter-python
+padded_infill = np.pad(infill[:,:,0], ((1,1), (0,0)), mode='constant', constant_values=0)
+padded_gt = np.pad(gt[:,:,0], ((1,1), (0,0)), mode='constant', constant_values=0)
+padded_mask = np.pad(mask, ((1,1), (0,0)), mode='constant', constant_values=0)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src jupyter-python
+blended = blend_images(padded_infill, padded_gt, padded_mask)
+# blended = blended[1:-1, 1:-1]
 
 blended = (blended * (dem_max - dem_min)) + dem_min
+# blended = blended[5:-5, 5:-5]
 
 ground_truth = denormalize(dem, dem_max, dem_min)
 inpainted_full = denormalize(x2, dem_max, dem_min)
 combined = denormalize(inpainted_result, dem_max, dem_min)
 
-plt.figure(figsize=(15,15))
-plt.subplot(1,4,1)
-plt.imshow(ground_truth, cmap='terrain')
+plt.imshow(infill[:,:,0], cmap='terrain')
+plt.colorbar()
+#+end_src
+
+#+RESULTS:
+:RESULTS:
+: <matplotlib.colorbar.Colorbar at 0x7f4e30bb69e0>
+[[file:./.ob-jupyter/581c6277ab99d09631f04faec2681c19f38e8254.png]]
+:END:
+
+#+begin_src jupyter-python
+plt.figure(figsize=(20,4))
+plt.subplot(1,5,1)
+plt.imshow(ground_truth[:,:,0], cmap='terrain')
 plt.title("Ground Truth")
-plt.subplot(1,4,2)
-plt.imshow(inpainted_full, cmap='terrain')
+plt.subplot(1,5,2)
+plt.imshow(mask, cmap='gray')
+plt.title("Mask")
+plt.subplot(1,5,3)
+plt.imshow(inpainted_full[:,:,0], cmap='terrain')
 plt.title("Inpainted Result")
-plt.subplot(1,4,3)
-plt.imshow(combined, cmap='terrain')
+plt.subplot(1,5,4)
+plt.imshow(combined[:,:,0], cmap='terrain')
 plt.title("Combined")
-plt.subplot(1,4,4)
+plt.subplot(1,5,5)
 plt.imshow(blended, cmap='terrain')
 plt.title("Poisson Blended")
+plt.savefig(f'test_results/{tile_n}_fig.png', dpi=300, format='png')
 plt.show()
 #+end_src
 
 #+RESULTS:
-[[file:./.ob-jupyter/0015e6b2e6982ed1159b568573ca2ceaf8cba531.png]]
+[[file:./.ob-jupyter/7fb1d4cd7c83062e755c7ef5fd2f211255657bc6.png]]
 
 
 
@@ -356,3 +392,16 @@ write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
 #+end_src
 
 #+RESULTS:
+:RESULTS:
+# [goto error]
+: ---------------------------------------------------------------------------
+: NameError                                 Traceback (most recent call last)
+: Cell In[31], line 25
+:      22     band.FlushCache()
+:      23     band.ComputeStatistics(False)
+: ---> 25 write_geotiff(f'test_results/{tile_n}_inpaint_poisson.tif', blended)
+:      26 write_geotiff(f'test_results/{tile_n}_inpaint.tif', combined)
+:      27 write_geotiff(f'test_results/{tile_n}_gt.tif', ground_truth)
+:
+: NameError: name 'blended' is not defined
+:END:

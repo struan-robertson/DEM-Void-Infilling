@@ -21,14 +21,6 @@ def normalize(arr):
     return normalized
 
 
-# def partial_norm(arr):
-#     normalized = (arr - arr.min()) / (arr.max() - arr.min())
-
-#     normalized = normalized - 1
-
-#     return normalized
-
-
 class Dataset(data.Dataset):
     def __init__(self, config):
         image_shape = config["image_shape"]
@@ -52,7 +44,7 @@ class Dataset(data.Dataset):
             path = os.path.join(self.root, file)
 
             pds = gdal.Open(path)
-            # geot = pds.GetGeoTransform()
+            geot = pds.GetGeoTransform()
 
             image = np.array(pds.ReadAsArray())
 
@@ -80,10 +72,10 @@ class Dataset(data.Dataset):
             tiled_array = vectorized_normalise(tiled_array)
 
             # Slope
-            # cellsize = geot[1]
-            # px, py = np.gradient(tiled_array, cellsize, axis=(1,2))
-            # slope = np.arctan(np.sqrt(px ** 2 + py ** 2))
-            # slope = vectorized_partial_norm(slope)
+            cellsize = geot[1]
+            px, py = np.gradient(tiled_array, cellsize, axis=(1, 2))
+            slope = np.arctan(np.sqrt(px**2 + py**2))
+            slope = vectorized_normalise(slope)
 
             # RDLS
             # windowed = sliding_window_view(tiled_array, (3,3), axis=(1,2)) # type: ignore
@@ -91,10 +83,10 @@ class Dataset(data.Dataset):
             # rdls = np.pad(rdls, ((0,0), (1,1), (1,1)), mode='constant', constant_values=0)
             # rdls = vectorized_normalise(rdls)
 
-            # all = np.stack((tiled_array, slope), axis=3)
+            all = np.stack((tiled_array, slope), axis=3)
 
-            tiled_array = np.expand_dims(tiled_array, axis=3)
-            tiled_array = np.transpose(tiled_array, (0, 3, 1, 2))
+            # tiled_array = np.expand_dims(tiled_array, axis=3)
+            all = np.transpose(all, (0, 3, 1, 2))
 
             file = os.path.basename(path)
 
@@ -103,7 +95,7 @@ class Dataset(data.Dataset):
 
             i += 1
 
-            dems.append(tiled_array)
+            dems.append(all)
 
         full = np.concatenate((*dems,))
 
