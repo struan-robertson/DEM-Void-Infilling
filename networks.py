@@ -34,7 +34,7 @@ class CoarseGenerator(nn.Module):
         super(CoarseGenerator, self).__init__()
         self.use_cuda = use_cuda
 
-        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2, norm='none')
+        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
         self.conv2_downsample = gen_conv(cnum, cnum*2, 3, 2, 1)
         self.conv3 = gen_conv(cnum*2, cnum*2, 3, 1, 1)
         self.conv4_downsample = gen_conv(cnum*2, cnum*4, 3, 2, 1)
@@ -99,7 +99,7 @@ class FineGenerator(nn.Module):
         self.use_cuda = use_cuda
 
         # 3 x 256 x 256
-        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2, norm='none')
+        self.conv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
         self.conv2_downsample = gen_conv(cnum, cnum, 3, 2, 1)
         # cnum*2 x 128 x 128
         self.conv3 = gen_conv(cnum, cnum*2, 3, 1, 1)
@@ -115,14 +115,14 @@ class FineGenerator(nn.Module):
 
         # attention branch
         # 3 x 256 x 256
-        self.pmconv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
-        self.pmconv2_downsample = gen_conv(cnum, cnum, 3, 2, 1)
+        self.pmconv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2, norm='none')
+        self.pmconv2_downsample = gen_conv(cnum, cnum, 3, 2, 1, norm='none')
         # cnum*2 x 128 x 128
-        self.pmconv3 = gen_conv(cnum, cnum*2, 3, 1, 1)
-        self.pmconv4_downsample = gen_conv(cnum*2, cnum*4, 3, 2, 1)
+        self.pmconv3 = gen_conv(cnum, cnum*2, 3, 1, 1, norm='none')
+        self.pmconv4_downsample = gen_conv(cnum*2, cnum*4, 3, 2, 1, norm='none')
         # cnum*4 x 64 x 64
-        self.pmconv5 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
-        self.pmconv6 = gen_conv(cnum*4, cnum*4, 3, 1, 1, activation='relu')
+        self.pmconv5 = gen_conv(cnum*4, cnum*4, 3, 1, 1, norm='none')
+        self.pmconv6 = gen_conv(cnum*4, cnum*4, 3, 1, 1, activation='relu', norm='none')
         self.contextul_attention = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10,
                                                        fuse=True, use_cuda=self.use_cuda)
         self.pmconv9 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
@@ -389,7 +389,7 @@ def gen_conv(input_dim, output_dim, kernel_size=3, stride=1, padding=0, rate=1,
 
 
 def dis_conv(input_dim, output_dim, kernel_size=4, stride=1, padding=0, rate=1,
-             activation='lrelu', norm='bn'):
+             activation='lrelu', norm='in'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
                        activation=activation, norm=norm)
