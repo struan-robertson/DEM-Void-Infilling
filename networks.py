@@ -54,7 +54,7 @@ class CoarseGenerator(nn.Module):
         self.conv15 = gen_conv(cnum*2, cnum, 3, 1, 1, )
         self.conv16 = gen_conv(cnum, cnum//2, 3, 1, 1, )
         self.conv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
-        self.conv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='tanh', norm='none')
+        self.conv18 = gen_conv(input_dim, input_dim, 5, 1, 2, activation='tanh')
 
     def forward(self, x, mask):
 
@@ -115,14 +115,14 @@ class FineGenerator(nn.Module):
 
         # attention branch
         # 3 x 256 x 256
-        self.pmconv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2, norm='none')
-        self.pmconv2_downsample = gen_conv(cnum, cnum, 3, 2, 1, norm='none')
+        self.pmconv1 = gen_conv(input_dim + 2, cnum, 5, 1, 2)
+        self.pmconv2_downsample = gen_conv(cnum, cnum, 3, 2, 1)
         # cnum*2 x 128 x 128
-        self.pmconv3 = gen_conv(cnum, cnum*2, 3, 1, 1, norm='none')
-        self.pmconv4_downsample = gen_conv(cnum*2, cnum*4, 3, 2, 1, norm='none')
+        self.pmconv3 = gen_conv(cnum, cnum*2, 3, 1, 1)
+        self.pmconv4_downsample = gen_conv(cnum*2, cnum*4, 3, 2, 1)
         # cnum*4 x 64 x 64
-        self.pmconv5 = gen_conv(cnum*4, cnum*4, 3, 1, 1, norm='none')
-        self.pmconv6 = gen_conv(cnum*4, cnum*4, 3, 1, 1, activation='relu', norm='none')
+        self.pmconv5 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
+        self.pmconv6 = gen_conv(cnum*4, cnum*4, 3, 1, 1, activation='relu')
         self.contextul_attention = ContextualAttention(ksize=3, stride=1, rate=2, fuse_k=3, softmax_scale=10,
                                                        fuse=True, use_cuda=self.use_cuda)
         self.pmconv9 = gen_conv(cnum*4, cnum*4, 3, 1, 1)
@@ -134,7 +134,7 @@ class FineGenerator(nn.Module):
         self.allconv15 = gen_conv(cnum*2, cnum, 3, 1, 1)
         self.allconv16 = gen_conv(cnum, cnum//2, 3, 1, 1)
         self.allconv17 = gen_conv(cnum//2, input_dim, 3, 1, 1)
-        self.allconv18 = gen_conv(input_dim, input_dim, 7, 1, 3, activation='tanh', norm='none')
+        self.allconv18 = gen_conv(input_dim, input_dim, 7, 1, 3, activation='tanh')
 
     def forward(self, xin, x_stage1, mask):
         x1_inpaint = x_stage1 * mask + xin * (1. - mask)
@@ -382,14 +382,14 @@ class DisConvModule(nn.Module):
 
 
 def gen_conv(input_dim, output_dim, kernel_size=3, stride=1, padding=0, rate=1,
-             activation='elu', norm='in'):
+             activation='elu'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
-                       activation=activation, norm=norm)
+                       activation=activation)
 
 
 def dis_conv(input_dim, output_dim, kernel_size=4, stride=1, padding=0, rate=1,
-             activation='lrelu', norm='in'):
+             activation='lrelu', norm='bn'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
                        activation=activation, norm=norm)
