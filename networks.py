@@ -382,7 +382,7 @@ class DisConvModule(nn.Module):
 
 
 def gen_conv(input_dim, output_dim, kernel_size=3, stride=1, padding=0, rate=1,
-             activation='elu', norm='bn'):
+             activation='elu', norm='in'):
     return Conv2dBlock(input_dim, output_dim, kernel_size, stride,
                        conv_padding=padding, dilation=rate,
                        activation=activation, norm=norm)
