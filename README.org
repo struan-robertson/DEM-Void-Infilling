@@ -45,6 +45,7 @@ Checkpoint images are saved in a grid where:
  - The top is the masked image
  - The middle is the infilling result
  - The bottom is the ground truth
+Additionaly the top half of the image is elevation values and the bottom half is slope values.
 
 #+html: <h3 align="center">Box Mask</h3>
 [[file:examples/box_training.png]]
