@@ -26,15 +26,17 @@ python train.py
 Checkpoint images and models will be saved to the =out= dir, which can be changed in config.
 
 * Test trained model
-The file =test.org= can be used to load a pre-trained model and generate GeoTiffs from it.
+The org file =test.org= can be used to test a trained model using RMSE, MAE and SSIM.
 The file can be run using [[https://orgmode.org/worg/org-contrib/babel/][org-babel]] with the [[https://www.gnu.org/software/emacs/][Emacs]] editor, requiring the [[https://github.com/nnicandro/emacs-jupyter][emacs-jupyter]] plugin, however all of the code would run the exact same in a [[https://jupyter.org/][Jupyter]] notebook.
-This was chosen over a normal python script as a lot of the tiled sections from lunar DEMs can be quite boring and so this allows the user to manually select tiles with interesting features to infill.
+Org files can be converted into Jupiter notebooks using [[https://pandoc.org/][Pandoc]].
+
+* Use trained model
+The org file =infill.org= can be used to load a pre-trained model and infill DEMs with it.
 
 * Training Results
-
-Training over [[https://wms.lroc.asu.edu/lroc/rdr_product_select][high-resolution NAC DTMs]]  with a third saved for testing.
-The network was trained on a subset of the data on a local GPU with a batch size of 12 to allow for more accurate initial training.
-For the remaining 106 epochs the network was trained on an Nvidia A100 80GB with a batch size of 64, when the generator wasserstein loss reached -200,000.
+Trained over 64 [[https://wms.lroc.asu.edu/lroc/rdr_product_select][high-resolution NAC DTMs]] with another 32 saved for testing.
+The network was trained on a local GPU with a batch size of 12 to allow for more accurate initial training.
+For the remaining epochs the network was trained on an Nvidia A100 80GB with a batch size of 64 until converged.
 
 The network was trained with masks in the shape of a square to simulate smaller naturally occurring no-data voids such as craters, and splits down the entire image to simulate a DEM joining task.
 
@@ -50,7 +52,7 @@ Checkpoint images are saved in a grid where:
 #+html: <h3 align="center">Epoch 163</h3>
 [[file:examples/163_dem.png]]
 
-** Testing Examples
+** Infill Examples
 
 *** Square Voids
 
