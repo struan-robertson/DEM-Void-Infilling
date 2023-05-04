@@ -46,28 +46,16 @@ Checkpoint images are saved in a grid where:
  - The middle is the infilling result
  - The bottom is the ground truth
 
-#+html: <h3 align="center">Epoch 158</h3>
-[[file:examples/158_dem.png]]
+#+html: <h3 align="center">Box Mask</h3>
+[[file:examples/box_training.png]]
 
-#+html: <h3 align="center">Epoch 163</h3>
-[[file:examples/163_dem.png]]
+#+html: <h3 align="center">Split Mask</h3>
+[[file:examples/split_training.png]]
 
-** Infill Examples
+** Infill Example
 
-*** Square Voids
+#+html: <h3 align="center">Void</h3>
+[[file:examples/400_void.png]]
 
-#+html: <h3 align="center">Infilling Process</h3>
-[[file:examples/50_fig_square.png]]
-
-
-#+html: <h3 align="center">3D Render</h3>
-[[file:examples/50_square.png]]
-
-*** Split Voids
-
-#+html: <h3 align="center">Infilling Process</h3>
-[[file:examples/5_fig.png]]
-
-
-#+html: <h3 align="center">3D Render</h3>
-[[file:examples/5_split.png]]
+#+html: <h3 align="center">Infilled</h3>
+[[file:examples/400.png]]
